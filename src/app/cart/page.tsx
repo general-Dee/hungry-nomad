@@ -15,7 +15,7 @@ export default function CartPage() {
         <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="max-w-md mx-auto">
           <div className="text-6xl mb-4">🛒</div>
           <h2 className="text-3xl font-bold">Your cart is empty</h2>
-          <p className="text-neutral-500 mt-2">Looks like you haven't added anything yet.</p>
+          <p className="text-neutral-500 mt-2">Looks like you haven&apos;t added anything yet.</p>
           <Link href="/menu" className="btn-primary inline-block mt-6">Start ordering</Link>
         </motion.div>
       </div>

@@ -5,12 +5,24 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { event, metaPixelEvent } from '@/lib/tracking';
 
+type OrderItem = {
+  product_id: number;
+  product_name: string;
+  price_at_time: number;
+  quantity: number;
+};
+
+type OrderWithItems = {
+  id: string;
+  total_amount: number;
+  items: OrderItem[];
+};
+
 function SuccessContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [orderId, setOrderId] = useState<string | null>(null);
-  const [orderDetails, setOrderDetails] = useState<any>(null);
 
   const reference = searchParams.get('reference');
   const orderIdParam = searchParams.get('order_id');
@@ -33,19 +45,18 @@ function SuccessContent() {
         if (data.success) {
           setStatus('success');
           setOrderId(orderIdParam);
-          // Fetch order details to fire purchase event with items
+          // Fetch order details to fire purchase event
           const orderRes = await fetch(`/api/orders/${orderIdParam}`);
-          const orderData = await orderRes.json();
-          setOrderDetails(orderData);
+          const orderData = (await orderRes.json()) as OrderWithItems;
 
-          // --- Purchase event (GA4) ---
+          // GA4 purchase
           event('purchase', {
             transaction_id: orderIdParam,
             value: orderData.total_amount,
             currency: 'NGN',
             tax: 0,
             shipping: 500,
-            items: orderData.items.map((item: any) => ({
+            items: orderData.items.map((item) => ({
               item_id: item.product_id.toString(),
               item_name: item.product_name,
               price: item.price_at_time,
@@ -53,13 +64,13 @@ function SuccessContent() {
             })),
           });
 
-          // --- Purchase event (Meta Pixel) ---
+          // Meta Pixel purchase
           metaPixelEvent('Purchase', {
             value: orderData.total_amount,
             currency: 'NGN',
             transaction_id: orderIdParam,
-            content_ids: orderData.items.map((i: any) => i.product_id.toString()),
-            num_items: orderData.items.reduce((acc: number, i: any) => acc + i.quantity, 0),
+            content_ids: orderData.items.map((i) => i.product_id.toString()),
+            num_items: orderData.items.reduce((acc, i) => acc + i.quantity, 0),
           });
         } else {
           setStatus('error');

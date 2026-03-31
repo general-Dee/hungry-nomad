@@ -3,19 +3,28 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
-import { supabase } from '@/lib/supabaseClient';
 import { event, metaPixelEvent } from '@/lib/tracking';
 
 declare global {
   interface Window {
-    PaystackPop: any;
+    PaystackPop: {
+      setup: (options: {
+        key: string;
+        email: string;
+        amount: number;
+        currency: string;
+        metadata: Record<string, unknown>;
+        callback: (response: { reference: string }) => void;
+        onClose: () => void;
+      }) => { openIframe: () => void };
+    };
   }
 }
 
 export default function CheckoutPage() {
   const router = useRouter();
   const { cart, getCartTotal, clearCart } = useCart();
-  const totalAmount = getCartTotal() + 500; // + delivery fee
+  const totalAmount = getCartTotal() + 500;
 
   const [formData, setFormData] = useState({
     customer_name: '',
@@ -27,7 +36,6 @@ export default function CheckoutPage() {
   const [error, setError] = useState('');
   const [paystackReady, setPaystackReady] = useState(false);
 
-  // Load Paystack script
   useEffect(() => {
     if (document.querySelector('#paystack-script')) {
       setPaystackReady(true);
@@ -40,7 +48,6 @@ export default function CheckoutPage() {
     script.onload = () => setPaystackReady(true);
     script.onerror = () => setError('Failed to load payment gateway.');
     document.body.appendChild(script);
-
     if (cart.length === 0) router.push('/cart');
   }, [cart, router]);
 
@@ -75,7 +82,6 @@ export default function CheckoutPage() {
     setError('');
     setLoading(true);
 
-    // Validate form
     if (!formData.customer_name || !formData.customer_email || !formData.customer_phone || !formData.customer_address) {
       setError('Please fill in all fields');
       setLoading(false);
@@ -87,7 +93,6 @@ export default function CheckoutPage() {
       return;
     }
 
-    // --- Begin Checkout tracking (GA4 + Meta) ---
     const checkoutItems = cart.map(item => ({
       item_id: item.id.toString(),
       item_name: item.name,
@@ -109,9 +114,8 @@ export default function CheckoutPage() {
 
     try {
       const order = await createOrder();
-
       const handler = window.PaystackPop.setup({
-        key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
+        key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY!,
         email: formData.customer_email,
         amount: totalAmount * 100,
         currency: 'NGN',
@@ -121,16 +125,16 @@ export default function CheckoutPage() {
             { display_name: 'Customer Name', variable_name: 'customer_name', value: formData.customer_name },
           ],
         },
-        callback: (response: any) => {
+        callback: (response: { reference: string }) => {
           router.push(`/success?reference=${response.reference}&order_id=${order.id}`);
           clearCart();
         },
         onClose: () => router.push('/cancel'),
       });
       handler.openIframe();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Payment error:', err);
-      setError(err.message || 'Something went wrong. Please try again.');
+      setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
       setLoading(false);
     }
@@ -145,28 +149,12 @@ export default function CheckoutPage() {
         <div className="flex-1">
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-xl font-semibold mb-4">Delivery Information</h2>
-            {error && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                {error}
-              </div>
-            )}
+            {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{error}</div>}
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
-                <input type="text" name="customer_name" value={formData.customer_name} onChange={handleInputChange} className="input-field" required />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-                <input type="email" name="customer_email" value={formData.customer_email} onChange={handleInputChange} className="input-field" required />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
-                <input type="tel" name="customer_phone" value={formData.customer_phone} onChange={handleInputChange} className="input-field" required />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Delivery Address *</label>
-                <textarea name="customer_address" value={formData.customer_address} onChange={handleInputChange} rows={3} className="input-field" required />
-              </div>
+              <div><label className="block text-sm font-medium mb-1">Full Name *</label><input type="text" name="customer_name" value={formData.customer_name} onChange={handleInputChange} className="input-field" required /></div>
+              <div><label className="block text-sm font-medium mb-1">Email *</label><input type="email" name="customer_email" value={formData.customer_email} onChange={handleInputChange} className="input-field" required /></div>
+              <div><label className="block text-sm font-medium mb-1">Phone Number *</label><input type="tel" name="customer_phone" value={formData.customer_phone} onChange={handleInputChange} className="input-field" required /></div>
+              <div><label className="block text-sm font-medium mb-1">Delivery Address *</label><textarea name="customer_address" value={formData.customer_address} onChange={handleInputChange} rows={3} className="input-field" required /></div>
             </div>
           </div>
         </div>
