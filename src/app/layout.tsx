@@ -6,6 +6,8 @@ import { TransitionProvider } from '@/context/TransitionContext';
 import Header from '@/components/Header';
 import ToastProvider from '@/components/ToastProvider';
 import TrackingScripts from '@/components/Scripts';
+import MetaPixel from '@/components/MetaPixel';          // ✅ added Meta Pixel
+import { GoogleAnalytics } from '@next/third-parties/google';
 
 const inter = Inter({ subsets: ['latin'], display: 'swap' });
 
@@ -81,7 +83,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <CartProvider>
           <TransitionProvider>
             <ToastProvider>
+              {/* Meta Pixel – loads the script and tracks PageView */}
+              <MetaPixel />
+              
+              {/* 
+                ⚠️ Make sure TrackingScripts does NOT load Google Analytics or Meta Pixel again.
+                If it does, remove those parts to avoid duplicates.
+              */}
               <TrackingScripts />
+              
               <Header />
               <main className="min-h-screen">{children}</main>
               <footer className="bg-neutral-900 text-white py-10 mt-20">
@@ -95,6 +105,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </ToastProvider>
           </TransitionProvider>
         </CartProvider>
+        {/* Google Analytics – placed at the end of body for optimal performance */}
+        <GoogleAnalytics gaId="G-SJR2X6Z9DS" />
       </body>
     </html>
   );
