@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { Product, ProductCategory } from '@/types';
@@ -25,15 +25,71 @@ export default function MenuContent() {
     categoryParam && categories.includes(categoryParam) ? categoryParam : 'all'
   );
 
+  // Use a ref to track if the component is still mounted to prevent state updates after unmount
+  const isMounted = useRef(true);
+  // Use a ref to track the current fetch AbortController
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
   useEffect(() => {
     const fetchAll = async () => {
-      const { data } = await supabase.from('products').select('*').order('name');
-      setProducts(data || []);
-      setLoading(false);
+      setLoading(true);
+      // Cancel previous request if any
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .order('name')
+          .abortSignal(abortController.signal);
+
+        if (error) throw error;
+
+        // Deduplicate by ID (just in case the API returns duplicates)
+        const uniqueProducts = (data || []).reduce((acc: Product[], current) => {
+          if (!acc.find(item => item.id === current.id)) {
+            acc.push(current);
+          }
+          return acc;
+        }, []);
+
+        if (isMounted.current) {
+          setProducts(uniqueProducts);
+        }
+      } catch (err: any) {
+        if (err.name === 'AbortError') {
+          // Ignore, it's fine
+          return;
+        }
+        console.error('Failed to fetch products:', err);
+        if (isMounted.current) {
+          setProducts([]);
+        }
+      } finally {
+        if (isMounted.current) {
+          setLoading(false);
+        }
+      }
     };
+
     fetchAll();
   }, []);
 
+  // Update active when URL category changes
   useEffect(() => {
     if (categoryParam && categories.includes(categoryParam)) {
       setActive(categoryParam);
@@ -79,7 +135,9 @@ export default function MenuContent() {
             transition={{ duration: 0.3 }}
             className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8"
           >
-            {filtered.map(p => <ProductCard key={p.id} product={p} />)}
+            {filtered.map(p => (
+              <ProductCard key={p.id} product={p} />
+            ))}
           </motion.div>
         </AnimatePresence>
       )}
