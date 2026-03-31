@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { Product, ProductCategory } from '@/types';
 import ProductCard from '@/components/ProductCard';
@@ -10,14 +11,19 @@ const categories: (ProductCategory | 'all')[] = ['all', 'fast_food', 'regular', 
 const categoryLabels: Record<string, string> = {
   all: 'All',
   fast_food: 'Fast Food',
-  regular: 'Regular',
+  regular: 'Regular Dishes',
   chinese: 'Chinese',
 };
 
 export default function MenuPage() {
+  const searchParams = useSearchParams();
+  const categoryParam = searchParams.get('category') as ProductCategory | null;
+
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [active, setActive] = useState<ProductCategory | 'all'>('all');
+  const [active, setActive] = useState<ProductCategory | 'all'>(
+    categoryParam && categories.includes(categoryParam) ? categoryParam : 'all'
+  );
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -27,6 +33,15 @@ export default function MenuPage() {
     };
     fetchAll();
   }, []);
+
+  // If the URL category changes (e.g., user clicks a link), update active state
+  useEffect(() => {
+    if (categoryParam && categories.includes(categoryParam)) {
+      setActive(categoryParam);
+    } else if (!categoryParam) {
+      setActive('all');
+    }
+  }, [categoryParam]);
 
   const filtered = active === 'all' ? products : products.filter(p => p.category === active);
 

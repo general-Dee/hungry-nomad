@@ -63,20 +63,35 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Features section (unchanged but keep) */}
+      {/* ✅ Clickable feature cards */}
       <section className="container mx-auto px-4 py-20">
         <div className="grid md:grid-cols-3 gap-8">
-          {[
-            { icon: '🍔', title: 'Fast Food', desc: 'Burgers, fried chicken, wraps – made fresh.' },
-            { icon: '🍛', title: 'Regular Dishes', desc: 'Jollof, egusi, pounded yam – authentic Nigerian.' },
-            { icon: '🥡', title: 'Chinese Cuisine', desc: 'Fried rice, noodles, sweet & sour chicken.' }
-          ].map((f, i) => (
-            <div key={i} className="card-glass p-6 text-center group">
-              <div className="text-5xl mb-4 group-hover:scale-110 transition-transform duration-300">{f.icon}</div>
-              <h3 className="text-xl font-bold">{f.title}</h3>
-              <p className="text-neutral-500 mt-2">{f.desc}</p>
-            </div>
-          ))}
+          <Link
+            href="/menu?category=fast_food"
+            className="card-glass p-6 text-center group transition-all hover:shadow-xl hover:-translate-y-1"
+          >
+            <div className="text-5xl mb-4 group-hover:scale-110 transition-transform duration-300">🍔</div>
+            <h3 className="text-xl font-bold">Fast Food</h3>
+            <p className="text-neutral-500 mt-2">Burgers, fried chicken, wraps – made fresh.</p>
+          </Link>
+
+          <Link
+            href="/menu?category=regular"
+            className="card-glass p-6 text-center group transition-all hover:shadow-xl hover:-translate-y-1"
+          >
+            <div className="text-5xl mb-4 group-hover:scale-110 transition-transform duration-300">🍛</div>
+            <h3 className="text-xl font-bold">Regular Dishes</h3>
+            <p className="text-neutral-500 mt-2">Jollof, egusi, pounded yam – authentic Nigerian.</p>
+          </Link>
+
+          <Link
+            href="/menu?category=chinese"
+            className="card-glass p-6 text-center group transition-all hover:shadow-xl hover:-translate-y-1"
+          >
+            <div className="text-5xl mb-4 group-hover:scale-110 transition-transform duration-300">🥡</div>
+            <h3 className="text-xl font-bold">Chinese Cuisine</h3>
+            <p className="text-neutral-500 mt-2">Fried rice, noodles, sweet & sour chicken.</p>
+          </Link>
         </div>
       </section>
 
