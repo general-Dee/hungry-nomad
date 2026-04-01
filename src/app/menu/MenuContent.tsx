@@ -1,95 +1,58 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
-import { Product, ProductCategory } from '@/types';
+import { useQuery } from '@tanstack/react-query';
 import ProductCard from '@/components/ProductCard';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Product, ProductCategory } from '@/types';
+import { useState, useEffect, useMemo } from 'react';
 
 const categories: (ProductCategory | 'all')[] = ['all', 'fast_food', 'regular', 'chinese'];
-const categoryLabels: Record<string, string> = {
+const categoryLabels = {
   all: 'All',
   fast_food: 'Fast Food',
   regular: 'Regular Dishes',
   chinese: 'Chinese',
 };
 
+const fetchProducts = async (): Promise<Product[]> => {
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .order('name');
+
+  if (error) throw new Error(error.message);
+  return data || [];
+};
+
 export default function MenuContent() {
   const searchParams = useSearchParams();
   const categoryParam = searchParams.get('category') as ProductCategory | null;
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: rawProducts = [], isLoading, error } = useQuery({
+    queryKey: ['products'],
+    queryFn: fetchProducts,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Deduplicate by ID (double‑safety)
+  const products = useMemo(() => {
+    const map = new Map<number, Product>();
+    rawProducts.forEach(p => {
+      if (!map.has(p.id)) map.set(p.id, p);
+    });
+    const unique = Array.from(map.values());
+    if (unique.length !== rawProducts.length) {
+      console.warn(`Deduplicated: ${rawProducts.length} → ${unique.length}`);
+    }
+    return unique;
+  }, [rawProducts]);
+
   const [active, setActive] = useState<ProductCategory | 'all'>(
     categoryParam && categories.includes(categoryParam) ? categoryParam : 'all'
   );
 
-  // Use a ref to track if the component is still mounted to prevent state updates after unmount
-  const isMounted = useRef(true);
-  // Use a ref to track the current fetch AbortController
-  const abortControllerRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    isMounted.current = true;
-    return () => {
-      isMounted.current = false;
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    const fetchAll = async () => {
-      setLoading(true);
-      // Cancel previous request if any
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-      const abortController = new AbortController();
-      abortControllerRef.current = abortController;
-
-      try {
-        const { data, error } = await supabase
-          .from('products')
-          .select('*')
-          .order('name')
-          .abortSignal(abortController.signal);
-
-        if (error) throw error;
-
-        // Deduplicate by ID (just in case the API returns duplicates)
-        const uniqueProducts = (data || []).reduce((acc: Product[], current) => {
-          if (!acc.find(item => item.id === current.id)) {
-            acc.push(current);
-          }
-          return acc;
-        }, []);
-
-        if (isMounted.current) {
-          setProducts(uniqueProducts);
-        }
-      } catch (err: any) {
-        if (err.name === 'AbortError') {
-          // Ignore, it's fine
-          return;
-        }
-        console.error('Failed to fetch products:', err);
-        if (isMounted.current) {
-          setProducts([]);
-        }
-      } finally {
-        if (isMounted.current) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchAll();
-  }, []);
-
-  // Update active when URL category changes
   useEffect(() => {
     if (categoryParam && categories.includes(categoryParam)) {
       setActive(categoryParam);
@@ -98,7 +61,29 @@ export default function MenuContent() {
     }
   }, [categoryParam]);
 
-  const filtered = active === 'all' ? products : products.filter(p => p.category === active);
+  // Filter and also deduplicate again (just in case)
+  const filtered = useMemo(() => {
+    const filteredRaw = active === 'all' ? products : products.filter(p => p.category === active);
+    // Final uniqueness safeguard
+    const seen = new Set<number>();
+    const result: Product[] = [];
+    for (const p of filteredRaw) {
+      if (!seen.has(p.id)) {
+        seen.add(p.id);
+        result.push(p);
+      }
+    }
+    console.log(`[MenuContent] Rendering ${result.length} items for category "${active}"`);
+    return result;
+  }, [active, products]);
+
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-12 text-center text-red-600">
+        Failed to load menu. Please refresh the page.
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-12">
@@ -121,9 +106,11 @@ export default function MenuContent() {
         ))}
       </div>
 
-      {loading ? (
+      {isLoading ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
-          {[...Array(6)].map((_, i) => <div key={i} className="h-80 animate-shine rounded-2xl"></div>)}
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="h-80 animate-shine rounded-2xl"></div>
+          ))}
         </div>
       ) : (
         <AnimatePresence mode="wait">

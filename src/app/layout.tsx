@@ -6,7 +6,8 @@ import { TransitionProvider } from '@/context/TransitionContext';
 import Header from '@/components/Header';
 import ToastProvider from '@/components/ToastProvider';
 import TrackingScripts from '@/components/Scripts';
-import MetaPixel from '@/components/MetaPixel';          // ✅ added Meta Pixel
+import MetaPixel from '@/components/MetaPixel';
+import Providers from './providers'; // 👈 React Query provider
 import { GoogleAnalytics } from '@next/third-parties/google';
 
 const inter = Inter({ subsets: ['latin'], display: 'swap' });
@@ -80,31 +81,33 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className={inter.className}>
-        <CartProvider>
-          <TransitionProvider>
-            <ToastProvider>
-              {/* Meta Pixel – loads the script and tracks PageView */}
-              <MetaPixel />
-              
-              {/* 
-                ⚠️ Make sure TrackingScripts does NOT load Google Analytics or Meta Pixel again.
-                If it does, remove those parts to avoid duplicates.
-              */}
-              <TrackingScripts />
-              
-              <Header />
-              <main className="min-h-screen">{children}</main>
-              <footer className="bg-neutral-900 text-white py-10 mt-20">
-                <div className="container mx-auto px-4 text-center">
-                  <h3 className="text-2xl font-bold text-amber-500">Hungry Nomad</h3>
-                  <p className="mt-2 text-neutral-400">Serving authentic meals in Kaduna, Nigeria</p>
-                  <p className="text-sm text-neutral-500 mt-4">123 Ahmadu Bello Way, Kaduna | +234 802 345 6789</p>
-                  <p className="text-xs text-neutral-600 mt-6">© 2025 Hungry Nomad – All rights reserved</p>
-                </div>
-              </footer>
-            </ToastProvider>
-          </TransitionProvider>
-        </CartProvider>
+        <Providers>
+          <CartProvider>
+            <TransitionProvider>
+              <ToastProvider>
+                {/* Meta Pixel – loads the script and tracks PageView */}
+                <MetaPixel />
+                
+                {/* 
+                  ⚠️ Make sure TrackingScripts does NOT load Google Analytics or Meta Pixel again.
+                  If it does, remove those parts to avoid duplicates.
+                */}
+                <TrackingScripts />
+                
+                <Header />
+                <main className="min-h-screen">{children}</main>
+                <footer className="bg-neutral-900 text-white py-10 mt-20">
+                  <div className="container mx-auto px-4 text-center">
+                    <h3 className="text-2xl font-bold text-amber-500">Hungry Nomad</h3>
+                    <p className="mt-2 text-neutral-400">Serving authentic meals in Kaduna, Nigeria</p>
+                    <p className="text-sm text-neutral-500 mt-4">123 Ahmadu Bello Way, Kaduna | +234 802 345 6789</p>
+                    <p className="text-xs text-neutral-600 mt-6">© 2025 Hungry Nomad – All rights reserved</p>
+                  </div>
+                </footer>
+              </ToastProvider>
+            </TransitionProvider>
+          </CartProvider>
+        </Providers>
         {/* Google Analytics – placed at the end of body for optimal performance */}
         <GoogleAnalytics gaId="G-SJR2X6Z9DS" />
       </body>
