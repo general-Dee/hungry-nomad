@@ -1,57 +1,71 @@
 'use client';
 
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
-import { useQuery } from '@tanstack/react-query';
+import { Product, ProductCategory } from '@/types';
 import ProductCard from '@/components/ProductCard';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Product, ProductCategory } from '@/types';
-import { useState, useEffect, useMemo } from 'react';
 
-const categories: (ProductCategory | 'all')[] = ['all', 'fast_food', 'regular', 'chinese'];
-const categoryLabels = {
+const categories: (ProductCategory | 'all')[] = ['all', 'fast_food', 'regular', 'chinese', 'icecream'];
+const categoryLabels: Record<string, string> = {
   all: 'All',
   fast_food: 'Fast Food',
   regular: 'Regular Dishes',
   chinese: 'Chinese',
-};
-
-const fetchProducts = async (): Promise<Product[]> => {
-  const { data, error } = await supabase
-    .from('products')
-    .select('*')
-    .order('name');
-
-  if (error) throw new Error(error.message);
-  return data || [];
+  icecream: 'Ice Cream',
 };
 
 export default function MenuContent() {
   const searchParams = useSearchParams();
   const categoryParam = searchParams.get('category') as ProductCategory | null;
 
-  const { data: rawProducts = [], isLoading, error } = useQuery({
-    queryKey: ['products'],
-    queryFn: fetchProducts,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  // Deduplicate by ID (double‑safety)
-  const products = useMemo(() => {
-    const map = new Map<number, Product>();
-    rawProducts.forEach(p => {
-      if (!map.has(p.id)) map.set(p.id, p);
-    });
-    const unique = Array.from(map.values());
-    if (unique.length !== rawProducts.length) {
-      console.warn(`Deduplicated: ${rawProducts.length} → ${unique.length}`);
-    }
-    return unique;
-  }, [rawProducts]);
-
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [active, setActive] = useState<ProductCategory | 'all'>(
     categoryParam && categories.includes(categoryParam) ? categoryParam : 'all'
   );
+
+  const hasFetched = useRef(false);
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (hasFetched.current) return;
+    hasFetched.current = true;
+
+    const fetchProducts = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .order('name');
+
+        if (error) throw error;
+
+        // Deduplicate by id (safety)
+        const uniqueProducts = (data || []).reduce<Product[]>((acc, curr) => {
+          if (!acc.some(p => p.id === curr.id)) acc.push(curr);
+          return acc;
+        }, []);
+
+        if (isMounted.current) setProducts(uniqueProducts);
+      } catch (err) {
+        console.error('Failed to fetch products:', err);
+        if (isMounted.current) setProducts([]);
+      } finally {
+        if (isMounted.current) setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
 
   useEffect(() => {
     if (categoryParam && categories.includes(categoryParam)) {
@@ -61,29 +75,9 @@ export default function MenuContent() {
     }
   }, [categoryParam]);
 
-  // Filter and also deduplicate again (just in case)
   const filtered = useMemo(() => {
-    const filteredRaw = active === 'all' ? products : products.filter(p => p.category === active);
-    // Final uniqueness safeguard
-    const seen = new Set<number>();
-    const result: Product[] = [];
-    for (const p of filteredRaw) {
-      if (!seen.has(p.id)) {
-        seen.add(p.id);
-        result.push(p);
-      }
-    }
-    console.log(`[MenuContent] Rendering ${result.length} items for category "${active}"`);
-    return result;
+    return active === 'all' ? products : products.filter(p => p.category === active);
   }, [active, products]);
-
-  if (error) {
-    return (
-      <div className="container mx-auto px-4 py-12 text-center text-red-600">
-        Failed to load menu. Please refresh the page.
-      </div>
-    );
-  }
 
   return (
     <div className="container mx-auto px-4 py-12">
@@ -106,11 +100,9 @@ export default function MenuContent() {
         ))}
       </div>
 
-      {isLoading ? (
+      {loading ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-80 animate-shine rounded-2xl"></div>
-          ))}
+          {[...Array(6)].map((_, i) => <div key={i} className="h-80 animate-shine rounded-2xl"></div>)}
         </div>
       ) : (
         <AnimatePresence mode="wait">

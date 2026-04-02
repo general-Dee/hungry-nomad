@@ -1,7 +1,7 @@
-export type ProductCategory = 'fast_food' | 'regular' | 'chinese';
+export type ProductCategory = 'fast_food' | 'regular' | 'chinese' | 'icecream';
 
 export interface Product {
-  id: number;        // Now number, not string
+  id: number;
   name: string;
   description: string;
   price: number;
@@ -15,7 +15,7 @@ export interface CartItem extends Product {
 }
 
 export interface Order {
-  id: number;        // number
+  id: number;
   customer_name: string;
   customer_email: string;
   customer_phone: string;
@@ -32,12 +32,4 @@ export interface OrderItem {
   product_id: number;
   quantity: number;
   price_at_time: number;
-}
-
-export interface Product {
-  id: number;        // number, not string
-  // ... rest
-}
-export interface CartItem extends Product {
-  quantity: number;
 }

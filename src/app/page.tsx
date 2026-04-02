@@ -24,6 +24,7 @@ export default async function Home() {
           <div className="absolute top-1/3 right-1/4 text-5xl animate-float">🥡</div>
           <div className="absolute bottom-40 left-1/3 text-4xl animate-float-slow">🍜</div>
           <div className="absolute top-1/2 left-5 text-5xl animate-float-delayed">🍗</div>
+          <div className="absolute bottom-20 right-1/3 text-5xl animate-float">🍦</div>
         </div>
 
         {/* Overlay for text readability */}
@@ -36,7 +37,7 @@ export default async function Home() {
             <span className="inline-block text-amber-300 animate-bounce-in-delay">Nomad</span>
           </h1>
           <p className="text-xl md:text-2xl mt-6 font-light max-w-2xl mx-auto leading-relaxed">
-            Savor the best of Kaduna – Fast Food, Traditional Delicacies & Authentic Chinese Cuisine.
+            Savor the best of Kaduna – Fast Food, Traditional Delicacies, Chinese Cuisine & Ice Cream.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/menu" className="btn-primary bg-white text-amber-700 hover:bg-amber-50 shadow-lg transform hover:scale-105 transition-all duration-300">
@@ -63,9 +64,9 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* ✅ Clickable feature cards */}
+      {/* ✅ Clickable feature cards (now 4) */}
       <section className="container mx-auto px-4 py-20">
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           <Link
             href="/menu?category=fast_food"
             className="card-glass p-6 text-center group transition-all hover:shadow-xl hover:-translate-y-1"
@@ -91,6 +92,15 @@ export default async function Home() {
             <div className="text-5xl mb-4 group-hover:scale-110 transition-transform duration-300">🥡</div>
             <h3 className="text-xl font-bold">Chinese Cuisine</h3>
             <p className="text-neutral-500 mt-2">Fried rice, noodles, sweet & sour chicken.</p>
+          </Link>
+
+          <Link
+            href="/menu?category=icecream"
+            className="card-glass p-6 text-center group transition-all hover:shadow-xl hover:-translate-y-1"
+          >
+            <div className="text-5xl mb-4 group-hover:scale-110 transition-transform duration-300">🍦</div>
+            <h3 className="text-xl font-bold">Ice Cream</h3>
+            <p className="text-neutral-500 mt-2">Creamy, refreshing desserts for every craving.</p>
           </Link>
         </div>
       </section>
