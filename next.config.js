@@ -1,8 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  
-  // Allow images from external domains
   images: {
     remotePatterns: [
       {
@@ -13,17 +11,14 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'via.placeholder.com',
       },
+      {
+        protocol: 'https',
+        hostname: 'didjqzebvouurvpdjofb.supabase.co', // your Supabase storage hostname
+      },
     ],
   },
-  
-  // Ignore ESLint errors during production build (prevents build failure)
   eslint: {
     ignoreDuringBuilds: true,
-  },
-  
-  // Optional: Ignore TypeScript errors during build (if needed)
-  typescript: {
-    ignoreBuildErrors: false, // set to true only if desperate
   },
 };
 
