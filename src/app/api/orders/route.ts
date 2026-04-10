@@ -6,6 +6,8 @@ interface OrderRequestBody {
   customer_email: string;
   customer_phone: string;
   customer_address: string;
+  delivery_lga: string;
+  delivery_fee: number;
   total_amount: number;
   items: { product_id: number; quantity: number; price_at_time: number }[];
 }
@@ -13,9 +15,28 @@ interface OrderRequestBody {
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as OrderRequestBody;
-    const { customer_name, customer_email, customer_phone, customer_address, total_amount, items } = body;
+    const {
+      customer_name,
+      customer_email,
+      customer_phone,
+      customer_address,
+      delivery_lga,
+      delivery_fee,
+      total_amount,
+      items,
+    } = body;
 
-    if (!customer_name || !customer_email || !customer_phone || !customer_address || !total_amount || !items || items.length === 0) {
+    if (
+      !customer_name ||
+      !customer_email ||
+      !customer_phone ||
+      !customer_address ||
+      !delivery_lga ||
+      delivery_fee === undefined ||
+      !total_amount ||
+      !items ||
+      items.length === 0
+    ) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -26,6 +47,8 @@ export async function POST(request: NextRequest) {
         customer_email,
         customer_phone,
         customer_address,
+        delivery_lga,
+        delivery_fee,
         total_amount,
         status: 'pending',
       })
