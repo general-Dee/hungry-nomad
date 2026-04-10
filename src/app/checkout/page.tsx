@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { supabase } from '@/lib/supabaseClient';
 import { event, metaPixelEvent } from '@/lib/tracking';
+import { ChevronLeftIcon, MapPinIcon, ShoppingCartIcon } from '@heroicons/react/24/outline';
+import Link from 'next/link';
 
 interface DeliveryZone {
   id: number;
@@ -65,7 +67,7 @@ export default function CheckoutPage() {
     if (cart.length === 0) router.push('/cart');
   }, [cart, router]);
 
-  // Fetch delivery zones (LGAs)
+  // Fetch delivery zones
   useEffect(() => {
     async function fetchZones() {
       const { data, error } = await supabase
@@ -85,7 +87,6 @@ export default function CheckoutPage() {
     fetchZones();
   }, []);
 
-  // Update total when delivery fee changes
   useEffect(() => {
     setTotalAmount(subtotal + deliveryFee);
   }, [subtotal, deliveryFee]);
@@ -198,123 +199,160 @@ export default function CheckoutPage() {
     }
   };
 
-  if (cart.length === 0) return null;
+  if (cart.length === 0) {
+    return (
+      <div className="container mx-auto px-4 py-16 text-center">
+        <ShoppingCartIcon className="mx-auto h-16 w-16 text-gray-300" />
+        <h2 className="mt-4 text-2xl font-semibold">Your cart is empty</h2>
+        <p className="mt-2 text-gray-500">Add some delicious items to your cart before checking out.</p>
+        <Link href="/menu" className="mt-6 inline-block rounded-full bg-amber-600 px-6 py-2 text-white hover:bg-amber-700">
+          Browse Menu
+        </Link>
+      </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Checkout</h1>
-      <div className="flex flex-col lg:flex-row gap-8">
-        <div className="flex-1">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold mb-4">Delivery Information</h2>
-            {error && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                {error}
-              </div>
-            )}
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
-                <input
-                  type="text"
-                  name="customer_name"
-                  value={formData.customer_name}
-                  onChange={handleInputChange}
-                  className="input-field"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-                <input
-                  type="email"
-                  name="customer_email"
-                  value={formData.customer_email}
-                  onChange={handleInputChange}
-                  className="input-field"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
-                <input
-                  type="tel"
-                  name="customer_phone"
-                  value={formData.customer_phone}
-                  onChange={handleInputChange}
-                  className="input-field"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Delivery Address *</label>
-                <textarea
-                  name="customer_address"
-                  value={formData.customer_address}
-                  onChange={handleInputChange}
-                  rows={3}
-                  className="input-field"
-                  required
-                />
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="container mx-auto px-4">
+        {/* Header */}
+        <div className="mb-8 flex items-center gap-3">
+          <button
+            onClick={() => router.back()}
+            className="rounded-full p-2 hover:bg-gray-200 transition"
+            aria-label="Go back"
+          >
+            <ChevronLeftIcon className="h-5 w-5" />
+          </button>
+          <h1 className="text-2xl font-bold text-gray-800">Checkout</h1>
+        </div>
+
+        <div className="flex flex-col gap-8 lg:flex-row">
+          {/* Left: Delivery form */}
+          <div className="flex-1">
+            <div className="rounded-2xl bg-white p-6 shadow-sm">
+              <div className="mb-6 flex items-center gap-2 border-b pb-3">
+                <MapPinIcon className="h-5 w-5 text-amber-600" />
+                <h2 className="text-lg font-semibold">Delivery Information</h2>
               </div>
 
-              {/* LGA Dropdown */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Local Government Area *</label>
-                {loadingZones ? (
-                  <p className="text-gray-500">Loading LGAs...</p>
-                ) : (
-                  <select
-                    value={selectedZoneId || ''}
-                    onChange={(e) => handleZoneChange(Number(e.target.value))}
-                    className="input-field"
+              {error && (
+                <div className="mb-4 rounded-lg bg-red-50 p-4 text-sm text-red-700">
+                  {error}
+                </div>
+              )}
+
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Full name *</label>
+                  <input
+                    type="text"
+                    name="customer_name"
+                    value={formData.customer_name}
+                    onChange={handleInputChange}
+                    className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200"
                     required
-                  >
-                    <option value="">Select LGA</option>
-                    {deliveryZones.map((zone) => (
-                      <option key={zone.id} value={zone.id}>
-                        {zone.lga_name} – ₦{zone.fee.toLocaleString()}
-                      </option>
-                    ))}
-                  </select>
-                )}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Email *</label>
+                  <input
+                    type="email"
+                    name="customer_email"
+                    value={formData.customer_email}
+                    onChange={handleInputChange}
+                    className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Phone number *</label>
+                  <input
+                    type="tel"
+                    name="customer_phone"
+                    value={formData.customer_phone}
+                    onChange={handleInputChange}
+                    className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200"
+                    required
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Delivery address *</label>
+                  <textarea
+                    name="customer_address"
+                    value={formData.customer_address}
+                    onChange={handleInputChange}
+                    rows={3}
+                    className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200"
+                    required
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Local Government Area *</label>
+                  {loadingZones ? (
+                    <div className="py-2 text-gray-500">Loading zones...</div>
+                  ) : (
+                    <select
+                      value={selectedZoneId || ''}
+                      onChange={(e) => handleZoneChange(Number(e.target.value))}
+                      className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200"
+                      required
+                    >
+                      <option value="">Select LGA</option>
+                      {deliveryZones.map((zone) => (
+                        <option key={zone.id} value={zone.id}>
+                          {zone.lga_name} – ₦{zone.fee.toLocaleString()}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="lg:w-96">
-          <div className="bg-gray-50 rounded-lg p-6 sticky top-24">
-            <h2 className="text-xl font-bold mb-4">Order Summary</h2>
-            <div className="space-y-2 mb-4">
-              {cart.map((item) => (
-                <div key={item.id} className="flex justify-between text-sm">
-                  <span>{item.name} x{item.quantity}</span>
-                  <span>₦{(item.price * item.quantity).toLocaleString()}</span>
+          {/* Right: Order summary */}
+          <div className="lg:w-96">
+            <div className="sticky top-24 rounded-2xl bg-white p-6 shadow-sm">
+              <h2 className="text-lg font-semibold">Order summary</h2>
+              <div className="mt-4 divide-y divide-gray-100">
+                <div className="space-y-2 pb-3">
+                  {cart.map((item) => (
+                    <div key={item.id} className="flex justify-between text-sm">
+                      <span className="text-gray-600">
+                        {item.name} <span className="text-gray-400">x{item.quantity}</span>
+                      </span>
+                      <span className="font-medium">₦{(item.price * item.quantity).toLocaleString()}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-              <div className="border-t pt-2 mt-2">
-                <div className="flex justify-between">
-                  <span>Subtotal</span>
-                  <span>₦{subtotal.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Delivery Fee</span>
-                  <span>₦{deliveryFee.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between font-bold text-lg pt-2">
-                  <span>Total</span>
-                  <span>₦{totalAmount.toLocaleString()}</span>
+                <div className="space-y-2 pt-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Subtotal</span>
+                    <span>₦{subtotal.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Delivery fee</span>
+                    <span>₦{deliveryFee.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between border-t pt-2 text-base font-bold">
+                    <span>Total</span>
+                    <span>₦{totalAmount.toLocaleString()}</span>
+                  </div>
                 </div>
               </div>
+
+              <button
+                onClick={handlePayment}
+                disabled={loading || !paystackReady || loadingZones || !selectedZoneId}
+                className="mt-6 w-full rounded-full bg-amber-600 py-3 font-semibold text-white transition hover:bg-amber-700 disabled:opacity-50"
+              >
+                {loading ? 'Processing...' : !paystackReady ? 'Loading payment...' : 'Proceed to payment'}
+              </button>
+              <p className="mt-3 text-center text-xs text-gray-500">
+                You will be redirected to Paystack to complete your payment.
+              </p>
             </div>
-            <button
-              onClick={handlePayment}
-              disabled={loading || !paystackReady || loadingZones || !selectedZoneId}
-              className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Processing...' : !paystackReady ? 'Loading Payment...' : 'Pay with Paystack'}
-            </button>
           </div>
         </div>
       </div>
