@@ -6,6 +6,7 @@ export interface Product {
   description: string;
   price: number;
   category: ProductCategory;
+  subcategory?: string;   // optional
   image_url: string;
   created_at: string;
 }
