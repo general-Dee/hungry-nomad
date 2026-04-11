@@ -7,13 +7,14 @@ import { Product, ProductCategory } from '@/types';
 import ProductCard from '@/components/ProductCard';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const categories: (ProductCategory | 'all')[] = ['all', 'fast_food', 'regular', 'chinese', 'icecream'];
+const categories: (ProductCategory | 'all')[] = ['all', 'fast_food', 'regular', 'chinese', 'icecream', 'beverages'];
 const categoryLabels: Record<string, string> = {
   all: 'All',
   fast_food: 'Fast Food',
   regular: 'Regular Dishes',
   chinese: 'Chinese',
   icecream: 'Ice Cream',
+  beverages: 'Beverages',
 };
 
 // Subcategories for fast food
@@ -56,7 +57,6 @@ export default function MenuContent() {
 
         if (error) throw error;
 
-        // Deduplicate by id (safety)
         const uniqueProducts = (data || []).reduce<Product[]>((acc, curr) => {
           if (!acc.some(p => p.id === curr.id)) acc.push(curr);
           return acc;
@@ -77,7 +77,7 @@ export default function MenuContent() {
   useEffect(() => {
     if (categoryParam && categories.includes(categoryParam)) {
       setActiveCategory(categoryParam);
-      setActiveSubcategory('all'); // reset subcategory when main category changes
+      setActiveSubcategory('all');
     } else if (!categoryParam) {
       setActiveCategory('all');
       setActiveSubcategory('all');
@@ -89,7 +89,6 @@ export default function MenuContent() {
       ? products
       : products.filter(p => p.category === activeCategory);
 
-    // Apply subcategory filter only if activeCategory is 'fast_food' and subcategory is not 'all'
     if (activeCategory === 'fast_food' && activeSubcategory !== 'all') {
       filteredByCategory = filteredByCategory.filter(p => p.subcategory === activeSubcategory);
     }
@@ -101,7 +100,6 @@ export default function MenuContent() {
       <h1 className="text-4xl font-bold text-center mb-2">Our Menu</h1>
       <p className="text-center text-neutral-500 mb-8">Crafted with passion, served with joy</p>
 
-      {/* Main category tabs */}
       <div className="flex flex-wrap justify-center gap-3 mb-6">
         {categories.map(cat => (
           <button
@@ -121,7 +119,6 @@ export default function MenuContent() {
         ))}
       </div>
 
-      {/* Subcategory tabs (only for fast food) */}
       {activeCategory === 'fast_food' && (
         <div className="flex flex-wrap justify-center gap-3 mb-8">
           {subcategories.map(sub => (
