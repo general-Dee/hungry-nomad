@@ -35,6 +35,7 @@ export default function CheckoutPage() {
   const { cart, getCartTotal, clearCart } = useCart();
   const subtotal = getCartTotal();
   const [deliveryFee, setDeliveryFee] = useState(0);
+  const takeawayFee = 300; // compulsory
   const [totalAmount, setTotalAmount] = useState(subtotal);
   const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
   const [selectedZoneId, setSelectedZoneId] = useState<number | null>(null);
@@ -87,8 +88,10 @@ export default function CheckoutPage() {
     fetchZones();
   }, []);
 
+  // Recalculate total (always includes takeaway fee)
   useEffect(() => {
-    setTotalAmount(subtotal + deliveryFee);
+    const total = subtotal + deliveryFee + takeawayFee;
+    setTotalAmount(total);
   }, [subtotal, deliveryFee]);
 
   const handleZoneChange = (zoneId: number) => {
@@ -112,6 +115,8 @@ export default function CheckoutPage() {
       customer_address: formData.customer_address,
       delivery_lga: formData.delivery_lga,
       delivery_fee: deliveryFee,
+      takeaway_pack: true, // always true
+      takeaway_fee: takeawayFee,
       total_amount: totalAmount,
       items: cart.map(item => ({
         product_id: item.id,
@@ -215,7 +220,6 @@ export default function CheckoutPage() {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="container mx-auto px-4">
-        {/* Header */}
         <div className="mb-8 flex items-center gap-3">
           <button
             onClick={() => router.back()}
@@ -228,7 +232,6 @@ export default function CheckoutPage() {
         </div>
 
         <div className="flex flex-col gap-8 lg:flex-row">
-          {/* Left: Delivery form */}
           <div className="flex-1">
             <div className="rounded-2xl bg-white p-6 shadow-sm">
               <div className="mb-6 flex items-center gap-2 border-b pb-3">
@@ -311,7 +314,6 @@ export default function CheckoutPage() {
             </div>
           </div>
 
-          {/* Right: Order summary */}
           <div className="lg:w-96">
             <div className="sticky top-24 rounded-2xl bg-white p-6 shadow-sm">
               <h2 className="text-lg font-semibold">Order summary</h2>
@@ -334,6 +336,10 @@ export default function CheckoutPage() {
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Delivery fee</span>
                     <span>₦{deliveryFee.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Take‑away pack</span>
+                    <span>₦{takeawayFee.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between border-t pt-2 text-base font-bold">
                     <span>Total</span>
