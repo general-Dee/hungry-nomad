@@ -17,10 +17,11 @@ const categoryLabels: Record<string, string> = {
 };
 
 // Subcategories for fast food
-const subcategories = ['all', 'grills']; // 'all' means no filter, 'grills' shows only grills
+const subcategories = ['all', 'grills', 'shawarma'];
 const subcategoryLabels: Record<string, string> = {
   all: 'All Fast Food',
   grills: 'Grills',
+  shawarma: 'Shawarma / Wraps',
 };
 
 export default function MenuContent() {
@@ -55,6 +56,7 @@ export default function MenuContent() {
 
         if (error) throw error;
 
+        // Deduplicate by id (safety)
         const uniqueProducts = (data || []).reduce<Product[]>((acc, curr) => {
           if (!acc.some(p => p.id === curr.id)) acc.push(curr);
           return acc;
