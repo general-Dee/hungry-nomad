@@ -18,11 +18,24 @@ const categoryLabels: Record<string, string> = {
 };
 
 // Subcategories for fast food
-const subcategories = ['all', 'grills', 'shawarma'];
-const subcategoryLabels: Record<string, string> = {
+const fastFoodSubs = ['all', 'grills', 'shawarma', 'fries'];
+const fastFoodSubLabels: Record<string, string> = {
   all: 'All Fast Food',
   grills: 'Grills',
   shawarma: 'Shawarma / Wraps',
+  fries: 'Fries',
+};
+
+// Subcategories for Chinese
+const chineseSubs = ['all', 'noodles', 'rice', 'sausages', 'wings', 'extras', 'dips'];
+const chineseSubLabels: Record<string, string> = {
+  all: 'All Chinese',
+  noodles: 'Noodles',
+  rice: 'Rice',
+  sausages: 'Sausages',
+  wings: 'Wings',
+  extras: 'Extras',
+  dips: 'Dips',
 };
 
 export default function MenuContent() {
@@ -34,7 +47,8 @@ export default function MenuContent() {
   const [activeCategory, setActiveCategory] = useState<ProductCategory | 'all'>(
     categoryParam && categories.includes(categoryParam) ? categoryParam : 'all'
   );
-  const [activeSubcategory, setActiveSubcategory] = useState<string>('all');
+  const [activeFastSub, setActiveFastSub] = useState<string>('all');
+  const [activeChineseSub, setActiveChineseSub] = useState<string>('all');
 
   const hasFetched = useRef(false);
   const isMounted = useRef(true);
@@ -56,31 +70,30 @@ export default function MenuContent() {
           .order('name');
 
         if (error) throw error;
-
         const uniqueProducts = (data || []).reduce<Product[]>((acc, curr) => {
           if (!acc.some(p => p.id === curr.id)) acc.push(curr);
           return acc;
         }, []);
-
         if (isMounted.current) setProducts(uniqueProducts);
       } catch (err) {
-        console.error('Failed to fetch products:', err);
+        console.error(err);
         if (isMounted.current) setProducts([]);
       } finally {
         if (isMounted.current) setLoading(false);
       }
     };
-
     fetchProducts();
   }, []);
 
   useEffect(() => {
     if (categoryParam && categories.includes(categoryParam)) {
       setActiveCategory(categoryParam);
-      setActiveSubcategory('all');
+      setActiveFastSub('all');
+      setActiveChineseSub('all');
     } else if (!categoryParam) {
       setActiveCategory('all');
-      setActiveSubcategory('all');
+      setActiveFastSub('all');
+      setActiveChineseSub('all');
     }
   }, [categoryParam]);
 
@@ -89,24 +102,29 @@ export default function MenuContent() {
       ? products
       : products.filter(p => p.category === activeCategory);
 
-    if (activeCategory === 'fast_food' && activeSubcategory !== 'all') {
-      filteredByCategory = filteredByCategory.filter(p => p.subcategory === activeSubcategory);
+    if (activeCategory === 'fast_food' && activeFastSub !== 'all') {
+      filteredByCategory = filteredByCategory.filter(p => p.subcategory === activeFastSub);
+    }
+    if (activeCategory === 'chinese' && activeChineseSub !== 'all') {
+      filteredByCategory = filteredByCategory.filter(p => p.subcategory === activeChineseSub);
     }
     return filteredByCategory;
-  }, [activeCategory, activeSubcategory, products]);
+  }, [activeCategory, activeFastSub, activeChineseSub, products]);
 
   return (
     <div className="container mx-auto px-4 py-12">
       <h1 className="text-4xl font-bold text-center mb-2">Our Menu</h1>
       <p className="text-center text-neutral-500 mb-8">Crafted with passion, served with joy</p>
 
+      {/* Main category tabs */}
       <div className="flex flex-wrap justify-center gap-3 mb-6">
         {categories.map(cat => (
           <button
             key={cat}
             onClick={() => {
               setActiveCategory(cat);
-              setActiveSubcategory('all');
+              setActiveFastSub('all');
+              setActiveChineseSub('all');
             }}
             className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
               activeCategory === cat
@@ -119,19 +137,39 @@ export default function MenuContent() {
         ))}
       </div>
 
+      {/* Subcategory tabs for Fast Food */}
       {activeCategory === 'fast_food' && (
         <div className="flex flex-wrap justify-center gap-3 mb-8">
-          {subcategories.map(sub => (
+          {fastFoodSubs.map(sub => (
             <button
               key={sub}
-              onClick={() => setActiveSubcategory(sub)}
+              onClick={() => setActiveFastSub(sub)}
               className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
-                activeSubcategory === sub
+                activeFastSub === sub
                   ? 'bg-amber-500 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
-              {subcategoryLabels[sub]}
+              {fastFoodSubLabels[sub]}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Subcategory tabs for Chinese */}
+      {activeCategory === 'chinese' && (
+        <div className="flex flex-wrap justify-center gap-3 mb-8">
+          {chineseSubs.map(sub => (
+            <button
+              key={sub}
+              onClick={() => setActiveChineseSub(sub)}
+              className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
+                activeChineseSub === sub
+                  ? 'bg-amber-500 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {chineseSubLabels[sub]}
             </button>
           ))}
         </div>
@@ -144,7 +182,7 @@ export default function MenuContent() {
       ) : (
         <AnimatePresence mode="wait">
           <motion.div
-            key={`${activeCategory}-${activeSubcategory}`}
+            key={`${activeCategory}-${activeFastSub}-${activeChineseSub}`}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}

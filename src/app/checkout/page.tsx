@@ -35,7 +35,8 @@ export default function CheckoutPage() {
   const { cart, getCartTotal, clearCart } = useCart();
   const subtotal = getCartTotal();
   const [deliveryFee, setDeliveryFee] = useState(0);
-  const takeawayFee = 300; // compulsory
+  const takeawayFee = 300;
+  const [shouldAddTakeaway, setShouldAddTakeaway] = useState(false);
   const [totalAmount, setTotalAmount] = useState(subtotal);
   const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
   const [selectedZoneId, setSelectedZoneId] = useState<number | null>(null);
@@ -88,11 +89,20 @@ export default function CheckoutPage() {
     fetchZones();
   }, []);
 
-  // Recalculate total (always includes takeaway fee)
+  // Determine if takeaway pack is needed (cart contains Regular or Chinese items)
   useEffect(() => {
-    const total = subtotal + deliveryFee + takeawayFee;
+    const hasRegularOrChinese = cart.some(item =>
+      item.category === 'regular' || item.category === 'chinese'
+    );
+    setShouldAddTakeaway(hasRegularOrChinese);
+  }, [cart]);
+
+  // Recalculate total
+  useEffect(() => {
+    let total = subtotal + deliveryFee;
+    if (shouldAddTakeaway) total += takeawayFee;
     setTotalAmount(total);
-  }, [subtotal, deliveryFee]);
+  }, [subtotal, deliveryFee, shouldAddTakeaway]);
 
   const handleZoneChange = (zoneId: number) => {
     const zone = deliveryZones.find(z => z.id === zoneId);
@@ -115,8 +125,8 @@ export default function CheckoutPage() {
       customer_address: formData.customer_address,
       delivery_lga: formData.delivery_lga,
       delivery_fee: deliveryFee,
-      takeaway_pack: true, // always true
-      takeaway_fee: takeawayFee,
+      takeaway_pack: shouldAddTakeaway,
+      takeaway_fee: shouldAddTakeaway ? takeawayFee : 0,
       total_amount: totalAmount,
       items: cart.map(item => ({
         product_id: item.id,
@@ -337,10 +347,12 @@ export default function CheckoutPage() {
                     <span className="text-gray-600">Delivery fee</span>
                     <span>₦{deliveryFee.toLocaleString()}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Take‑away pack</span>
-                    <span>₦{takeawayFee.toLocaleString()}</span>
-                  </div>
+                  {shouldAddTakeaway && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Take‑away pack</span>
+                      <span>₦{takeawayFee.toLocaleString()}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between border-t pt-2 text-base font-bold">
                     <span>Total</span>
                     <span>₦{totalAmount.toLocaleString()}</span>
