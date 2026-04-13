@@ -38,6 +38,13 @@ const chineseSubLabels: Record<string, string> = {
   dips: 'Dips',
 };
 
+// Subcategories for Regular Dishes
+const regularSubs = ['all', 'sides'];
+const regularSubLabels: Record<string, string> = {
+  all: 'All Regular',
+  sides: 'Sides',
+};
+
 export default function MenuContent() {
   const searchParams = useSearchParams();
   const categoryParam = searchParams.get('category') as ProductCategory | null;
@@ -49,6 +56,7 @@ export default function MenuContent() {
   );
   const [activeFastSub, setActiveFastSub] = useState<string>('all');
   const [activeChineseSub, setActiveChineseSub] = useState<string>('all');
+  const [activeRegularSub, setActiveRegularSub] = useState<string>('all');
 
   const hasFetched = useRef(false);
   const isMounted = useRef(true);
@@ -90,10 +98,12 @@ export default function MenuContent() {
       setActiveCategory(categoryParam);
       setActiveFastSub('all');
       setActiveChineseSub('all');
+      setActiveRegularSub('all');
     } else if (!categoryParam) {
       setActiveCategory('all');
       setActiveFastSub('all');
       setActiveChineseSub('all');
+      setActiveRegularSub('all');
     }
   }, [categoryParam]);
 
@@ -108,8 +118,11 @@ export default function MenuContent() {
     if (activeCategory === 'chinese' && activeChineseSub !== 'all') {
       filteredByCategory = filteredByCategory.filter(p => p.subcategory === activeChineseSub);
     }
+    if (activeCategory === 'regular' && activeRegularSub !== 'all') {
+      filteredByCategory = filteredByCategory.filter(p => p.subcategory === activeRegularSub);
+    }
     return filteredByCategory;
-  }, [activeCategory, activeFastSub, activeChineseSub, products]);
+  }, [activeCategory, activeFastSub, activeChineseSub, activeRegularSub, products]);
 
   return (
     <div className="container mx-auto px-4 py-12">
@@ -125,12 +138,12 @@ export default function MenuContent() {
               setActiveCategory(cat);
               setActiveFastSub('all');
               setActiveChineseSub('all');
+              setActiveRegularSub('all');
             }}
-            className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
-              activeCategory === cat
+            className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${activeCategory === cat
                 ? 'bg-amber-600 text-white shadow-md'
                 : 'bg-white/60 backdrop-blur-sm text-neutral-700 hover:bg-amber-100'
-            }`}
+              }`}
           >
             {categoryLabels[cat]}
           </button>
@@ -144,11 +157,10 @@ export default function MenuContent() {
             <button
               key={sub}
               onClick={() => setActiveFastSub(sub)}
-              className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
-                activeFastSub === sub
+              className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${activeFastSub === sub
                   ? 'bg-amber-500 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+                }`}
             >
               {fastFoodSubLabels[sub]}
             </button>
@@ -163,13 +175,30 @@ export default function MenuContent() {
             <button
               key={sub}
               onClick={() => setActiveChineseSub(sub)}
-              className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
-                activeChineseSub === sub
+              className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${activeChineseSub === sub
                   ? 'bg-amber-500 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+                }`}
             >
               {chineseSubLabels[sub]}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Subcategory tabs for Regular Dishes */}
+      {activeCategory === 'regular' && (
+        <div className="flex flex-wrap justify-center gap-3 mb-8">
+          {regularSubs.map(sub => (
+            <button
+              key={sub}
+              onClick={() => setActiveRegularSub(sub)}
+              className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${activeRegularSub === sub
+                  ? 'bg-amber-500 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+            >
+              {regularSubLabels[sub]}
             </button>
           ))}
         </div>
@@ -182,7 +211,7 @@ export default function MenuContent() {
       ) : (
         <AnimatePresence mode="wait">
           <motion.div
-            key={`${activeCategory}-${activeFastSub}-${activeChineseSub}`}
+            key={`${activeCategory}-${activeFastSub}-${activeChineseSub}-${activeRegularSub}`}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
