@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabaseClient';
+import { orderCreateRatelimit, getClientIp } from '@/lib/ratelimit';
 
 interface OrderRequestBody {
   customer_name: string;
@@ -14,6 +15,16 @@ interface OrderRequestBody {
 
 export async function POST(request: NextRequest) {
   try {
+    if (orderCreateRatelimit) {
+      const { success } = await orderCreateRatelimit.limit(getClientIp(request));
+      if (!success) {
+        return NextResponse.json(
+          { error: 'Too many orders placed. Please wait a moment and try again.' },
+          { status: 429 }
+        );
+      }
+    }
+
     const body = (await request.json()) as OrderRequestBody;
     const {
       customer_name,

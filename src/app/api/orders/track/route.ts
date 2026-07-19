@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabaseClient';
+import { orderTrackRatelimit, getClientIp } from '@/lib/ratelimit';
 
 function normalizePhone(phone: string) {
   return phone.replace(/\D/g, '').slice(-10);
@@ -7,6 +8,16 @@ function normalizePhone(phone: string) {
 
 export async function POST(request: NextRequest) {
   try {
+    if (orderTrackRatelimit) {
+      const { success } = await orderTrackRatelimit.limit(getClientIp(request));
+      if (!success) {
+        return NextResponse.json(
+          { error: 'Too many attempts. Please wait a moment and try again.' },
+          { status: 429 }
+        );
+      }
+    }
+
     const { order_id, phone } = await request.json();
 
     if (!order_id || !phone) {
