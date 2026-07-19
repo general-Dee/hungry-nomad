@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabaseClient';
 import { orderCreateRatelimit, getClientIp } from '@/lib/ratelimit';
+import { isWithinBusinessHours, BUSINESS_HOURS_LABEL } from '@/lib/businessHours';
 
 interface OrderRequestBody {
   customer_name: string;
@@ -15,6 +16,13 @@ interface OrderRequestBody {
 
 export async function POST(request: NextRequest) {
   try {
+    if (!isWithinBusinessHours()) {
+      return NextResponse.json(
+        { error: `Sorry, we're closed right now. Orders can be placed between ${BUSINESS_HOURS_LABEL}.` },
+        { status: 403 }
+      );
+    }
+
     if (orderCreateRatelimit) {
       const { success } = await orderCreateRatelimit.limit(getClientIp(request));
       if (!success) {

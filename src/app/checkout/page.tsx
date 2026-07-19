@@ -6,6 +6,7 @@ import { useCart } from '@/context/CartContext';
 import { supabase } from '@/lib/supabaseClient';
 import { event, metaPixelEvent } from '@/lib/tracking';
 import { TAKEAWAY_FEE, requiresTakeawayFee } from '@/lib/pricing';
+import { isWithinBusinessHours, BUSINESS_HOURS_LABEL } from '@/lib/businessHours';
 import { ChevronLeftIcon, MapPinIcon, ShoppingCartIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 
@@ -53,6 +54,15 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [paystackReady, setPaystackReady] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
+
+  // Check business hours on mount and keep it current while the page is open
+  useEffect(() => {
+    const check = () => setIsOpen(isWithinBusinessHours());
+    check();
+    const interval = setInterval(check, 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Load Paystack script
   useEffect(() => {
@@ -155,6 +165,11 @@ export default function CheckoutPage() {
     setError('');
     setLoading(true);
 
+    if (!isOpen) {
+      setError(`Sorry, we're closed right now. Orders can be placed between ${BUSINESS_HOURS_LABEL}.`);
+      setLoading(false);
+      return;
+    }
     if (!formData.customer_name || !formData.customer_email || !formData.customer_phone || !formData.customer_address) {
       setError('Please fill in all fields');
       setLoading(false);
@@ -248,6 +263,15 @@ export default function CheckoutPage() {
           </button>
           <h1 className="text-2xl font-bold text-gray-800">Checkout</h1>
         </div>
+
+        {!isOpen && (
+          <div className="mb-6 rounded-2xl bg-amber-50 border border-amber-200 p-4 text-center text-amber-800">
+            <p className="font-semibold">We&apos;re currently closed</p>
+            <p className="text-sm mt-1">
+              Orders can be placed between {BUSINESS_HOURS_LABEL}. Your cart is saved — come back during business hours to check out.
+            </p>
+          </div>
+        )}
 
         <div className="flex flex-col gap-8 lg:flex-row">
           <div className="flex-1">
@@ -370,10 +394,10 @@ export default function CheckoutPage() {
 
               <button
                 onClick={handlePayment}
-                disabled={loading || !paystackReady || loadingZones || !selectedZoneId}
+                disabled={loading || !paystackReady || loadingZones || !selectedZoneId || !isOpen}
                 className="mt-6 w-full rounded-full bg-amber-600 py-3 font-semibold text-white transition hover:bg-amber-700 disabled:opacity-50"
               >
-                {loading ? 'Processing...' : !paystackReady ? 'Loading payment...' : 'Proceed to payment'}
+                {!isOpen ? "We're closed right now" : loading ? 'Processing...' : !paystackReady ? 'Loading payment...' : 'Proceed to payment'}
               </button>
               <p className="mt-3 text-center text-xs text-gray-500">
                 You will be redirected to Paystack to complete your payment.

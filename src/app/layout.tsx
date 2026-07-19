@@ -94,7 +94,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               "telephone": "+2348023456789",
               "servesCuisine": ["Fast Food", "Nigerian", "Chinese"],
               "priceRange": "₦1500 - ₦5000",
-              "openingHours": "Mo-Su 10:00-22:00",
+              "openingHours": "Mo-Su 11:00-21:30",
               "image": `${SITE_URL}/restaurant-image.jpg`
             })
           }}
@@ -140,7 +140,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                               <svg className="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
-                              <span>11:00am – 10:30pm (Daily)</span>
+                              <span>11:00am – 9:30pm (Daily)</span>
                             </div>
                           </div>
                         </div>
