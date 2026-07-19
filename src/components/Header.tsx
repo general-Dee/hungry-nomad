@@ -2,10 +2,12 @@
 
 import Link from 'next/link';
 import { useCart } from '@/context/CartContext';
+import { useCartDrawer } from '@/context/CartDrawerContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Header() {
   const { getCartCount } = useCart();
+  const { openDrawer } = useCartDrawer();
   const count = getCartCount();
 
   return (
@@ -21,7 +23,7 @@ export default function Header() {
         <nav className="hidden md:flex items-center space-x-8">
           <NavLink href="/">Home</NavLink>
           <NavLink href="/menu">Menu</NavLink>
-          <Link href="/cart" className="relative text-neutral-700 hover:text-amber-600 transition">
+          <button onClick={openDrawer} aria-label="Open cart" className="relative text-neutral-700 hover:text-amber-600 transition">
             Cart
             <AnimatePresence>
               {count > 0 && (
@@ -35,10 +37,10 @@ export default function Header() {
                 </motion.span>
               )}
             </AnimatePresence>
-          </Link>
+          </button>
         </nav>
 
-        <Link href="/cart" className="md:hidden relative">
+        <button onClick={openDrawer} aria-label="Open cart" className="md:hidden relative">
           <CartIcon />
           <AnimatePresence>
             {count > 0 && (
@@ -51,7 +53,7 @@ export default function Header() {
               </motion.span>
             )}
           </AnimatePresence>
-        </Link>
+        </button>
       </div>
     </header>
   );
