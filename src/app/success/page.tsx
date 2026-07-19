@@ -113,6 +113,9 @@ function SuccessContent() {
         <Link href="/" className="btn-primary inline-block">Return Home</Link>
         <Link href="/menu" className="btn-secondary inline-block">Order More</Link>
       </div>
+      <Link href={`/track?order_id=${orderId}`} className="block mt-6 text-sm text-neutral-500 hover:text-amber-600 transition">
+        Track this order
+      </Link>
     </div>
   );
 }

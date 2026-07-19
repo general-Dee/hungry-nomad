@@ -144,6 +144,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                           <ul className="space-y-2">
                             <li><a href="/menu" className="text-neutral-400 hover:text-amber-500 transition">Our Menu</a></li>
                             <li><a href="/cart" className="text-neutral-400 hover:text-amber-500 transition">Cart</a></li>
+                            <li><a href="/track" className="text-neutral-400 hover:text-amber-500 transition">Track Order</a></li>
                             <li><a href="/" className="text-neutral-400 hover:text-amber-500 transition">Home</a></li>
                           </ul>
                         </div>
