@@ -5,7 +5,6 @@ import { CartProvider } from '@/context/CartContext';
 import { TransitionProvider } from '@/context/TransitionContext';
 import Header from '@/components/Header';
 import ToastProvider from '@/components/ToastProvider';
-import TrackingScripts from '@/components/Scripts';
 import MetaPixel from '@/components/MetaPixel';
 import Providers from './providers';
 import { GoogleAnalytics } from '@next/third-parties/google';
@@ -97,7 +96,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <TransitionProvider>
               <ToastProvider>
                 <MetaPixel />
-                <TrackingScripts />
                 <Header />
                 <main className="min-h-screen">{children}</main>
                 <footer className="bg-neutral-900 text-white py-12 mt-20">
