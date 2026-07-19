@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabaseClient';
+import { sendOrderConfirmationEmail, sendStaffOrderAlertEmail } from '@/lib/email';
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,21 +30,44 @@ export async function POST(request: NextRequest) {
     }
 
     // Update order status
-    const { error: updateError } = await supabase
+    const { data: order, error: updateError } = await supabase
       .from('orders')
       .update({
         status: 'paid',
         payment_reference: reference,
       })
-      .eq('id', order_id);
+      .eq('id', order_id)
+      .select()
+      .single();
 
-    if (updateError) {
+    if (updateError || !order) {
       console.error('Order update error:', updateError);
       return NextResponse.json(
         { error: 'Failed to update order' },
         { status: 500 }
       );
     }
+
+    const { data: items, error: itemsError } = await supabase
+      .from('order_items')
+      .select('product_id, quantity, price_at_time, products ( name )')
+      .eq('order_id', order_id);
+
+    if (itemsError) {
+      console.error('Order items fetch error:', itemsError);
+    }
+
+    const emailItems = ((items as any[]) || []).map((item) => ({
+      product_name: item.products?.name || 'Item',
+      quantity: item.quantity,
+      price_at_time: item.price_at_time,
+    }));
+
+    // Best-effort notifications — a failure here shouldn't fail the payment confirmation.
+    await Promise.all([
+      sendOrderConfirmationEmail(order, emailItems),
+      sendStaffOrderAlertEmail(order, emailItems),
+    ]);
 
     return NextResponse.json({ success: true });
   } catch (error) {
