@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, Fraunces } from 'next/font/google';
 import './globals.css';
 import { CartProvider } from '@/context/CartContext';
 import { CartDrawerProvider } from '@/context/CartDrawerContext';
@@ -14,6 +14,12 @@ import { GoogleAnalytics } from '@next/third-parties/google';
 import { SITE_URL } from '@/lib/site';
 
 const inter = Inter({ subsets: ['latin'], display: 'swap' });
+const fraunces = Fraunces({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['600', '700', '800', '900'],
+  variable: '--font-display',
+});
 
 export const metadata: Metadata = {
   title: 'Hungry Nomad – Best Fast Food, Nigerian & Chinese in Kaduna',
@@ -94,7 +100,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body className={inter.className}>
+      <body className={`${inter.className} ${fraunces.variable}`}>
         <Providers>
           <CartProvider>
             <CartDrawerProvider>

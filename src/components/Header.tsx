@@ -13,11 +13,11 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 bg-white/70 backdrop-blur-xl border-b border-neutral-200/50 shadow-sm">
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-        <Link href="/" className="text-2xl font-extrabold tracking-tight group">
+        <Link href="/" className="font-display text-2xl font-extrabold tracking-tight group">
           <span className="bg-gradient-to-r from-amber-600 to-amber-500 bg-clip-text text-transparent">
             Hungry
           </span>
-          <span className="text-neutral-800 group-hover:text-amber-600 transition"> Nomad</span>
+          <span className="text-secondary group-hover:text-amber-600 transition"> Nomad</span>
         </Link>
 
         <nav className="hidden md:flex items-center space-x-8">

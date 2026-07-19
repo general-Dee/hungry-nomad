@@ -7,7 +7,7 @@
     @apply bg-gradient-to-br from-neutral-50 via-white to-amber-50/20 text-neutral-800 antialiased;
   }
   h1, h2, h3 {
-    @apply font-bold tracking-tight;
+    @apply font-display font-bold tracking-tight;
   }
   ::selection {
     @apply bg-amber-200/80 text-neutral-900;
