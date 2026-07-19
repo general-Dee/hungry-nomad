@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { supabase } from '@/lib/supabaseClient';
 import { Product, ProductCategory } from '@/types';
 import ProductCard from '@/components/ProductCard';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -45,53 +44,16 @@ const regularSubLabels: Record<string, string> = {
   sides: 'Sides',
 };
 
-export default function MenuContent() {
+export default function MenuContent({ initialProducts }: { initialProducts: Product[] }) {
   const searchParams = useSearchParams();
   const categoryParam = searchParams.get('category') as ProductCategory | null;
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<ProductCategory | 'all'>(
     categoryParam && categories.includes(categoryParam) ? categoryParam : 'all'
   );
   const [activeFastSub, setActiveFastSub] = useState<string>('all');
   const [activeChineseSub, setActiveChineseSub] = useState<string>('all');
   const [activeRegularSub, setActiveRegularSub] = useState<string>('all');
-
-  const hasFetched = useRef(false);
-  const isMounted = useRef(true);
-
-  useEffect(() => {
-    isMounted.current = true;
-    return () => { isMounted.current = false; };
-  }, []);
-
-  useEffect(() => {
-    if (hasFetched.current) return;
-    hasFetched.current = true;
-
-    const fetchProducts = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('products')
-          .select('*')
-          .order('name');
-
-        if (error) throw error;
-        const uniqueProducts = (data || []).reduce<Product[]>((acc, curr) => {
-          if (!acc.some(p => p.id === curr.id)) acc.push(curr);
-          return acc;
-        }, []);
-        if (isMounted.current) setProducts(uniqueProducts);
-      } catch (err) {
-        console.error(err);
-        if (isMounted.current) setProducts([]);
-      } finally {
-        if (isMounted.current) setLoading(false);
-      }
-    };
-    fetchProducts();
-  }, []);
 
   useEffect(() => {
     if (categoryParam && categories.includes(categoryParam)) {
@@ -109,8 +71,8 @@ export default function MenuContent() {
 
   const filtered = useMemo(() => {
     let filteredByCategory = activeCategory === 'all'
-      ? products
-      : products.filter(p => p.category === activeCategory);
+      ? initialProducts
+      : initialProducts.filter(p => p.category === activeCategory);
 
     if (activeCategory === 'fast_food' && activeFastSub !== 'all') {
       filteredByCategory = filteredByCategory.filter(p => p.subcategory === activeFastSub);
@@ -122,7 +84,7 @@ export default function MenuContent() {
       filteredByCategory = filteredByCategory.filter(p => p.subcategory === activeRegularSub);
     }
     return filteredByCategory;
-  }, [activeCategory, activeFastSub, activeChineseSub, activeRegularSub, products]);
+  }, [activeCategory, activeFastSub, activeChineseSub, activeRegularSub, initialProducts]);
 
   return (
     <div className="container mx-auto px-4 py-12">
@@ -204,24 +166,18 @@ export default function MenuContent() {
         </div>
       )}
 
-      {loading ? (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
-          {[...Array(6)].map((_, i) => <div key={i} className="h-80 animate-shine rounded-2xl"></div>)}
-        </div>
-      ) : (
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={`${activeCategory}-${activeFastSub}-${activeChineseSub}-${activeRegularSub}`}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.3 }}
-            className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8"
-          >
-            {filtered.map(p => <ProductCard key={p.id} product={p} />)}
-          </motion.div>
-        </AnimatePresence>
-      )}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={`${activeCategory}-${activeFastSub}-${activeChineseSub}-${activeRegularSub}`}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.3 }}
+          className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8"
+        >
+          {filtered.map(p => <ProductCard key={p.id} product={p} />)}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }
