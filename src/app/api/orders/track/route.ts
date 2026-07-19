@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
     }
 
     const formattedItems = ((items as any[]) || []).map((item) => ({
+      product_id: item.product_id,
       product_name: item.products?.name || 'Item',
       quantity: item.quantity,
       price_at_time: item.price_at_time,

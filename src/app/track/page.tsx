@@ -1,9 +1,12 @@
 'use client';
 
 import { useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabaseClient';
+import { useCart } from '@/context/CartContext';
 
 type OrderItem = {
+  product_id: number;
   product_name: string;
   quantity: number;
   price_at_time: number;
@@ -29,11 +32,15 @@ const STEPS: { key: OrderStatus; label: string }[] = [
 
 function TrackContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const { cart, addToCart, updateQuantity } = useCart();
   const [orderId, setOrderId] = useState(searchParams.get('order_id') || '');
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [order, setOrder] = useState<TrackedOrder | null>(null);
+  const [reordering, setReordering] = useState(false);
+  const [reorderError, setReorderError] = useState('');
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -55,6 +62,53 @@ function TrackContent() {
       setError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleReorder = async () => {
+    if (!order) return;
+    setReordering(true);
+    setReorderError('');
+    try {
+      const productIds = order.items.map((item) => item.product_id);
+      const { data: products, error: fetchError } = await supabase
+        .from('products')
+        .select('*')
+        .in('id', productIds);
+
+      if (fetchError || !products) {
+        setReorderError('Could not reorder right now. Please try again.');
+        return;
+      }
+
+      let addedCount = 0;
+      let missingCount = 0;
+
+      order.items.forEach((item) => {
+        const product = products.find((p) => p.id === item.product_id);
+        if (!product) {
+          missingCount += 1;
+          return;
+        }
+        const existing = cart.find((c) => c.id === product.id);
+        if (existing) {
+          updateQuantity(product.id, existing.quantity + item.quantity);
+        } else {
+          addToCart(product);
+          if (item.quantity > 1) updateQuantity(product.id, item.quantity);
+        }
+        addedCount += 1;
+      });
+
+      if (addedCount === 0) {
+        setReorderError('Sorry, none of these items are available anymore.');
+        return;
+      }
+      router.push('/cart');
+    } catch {
+      setReorderError('Could not reorder right now. Please try again.');
+    } finally {
+      setReordering(false);
     }
   };
 
@@ -157,12 +211,22 @@ function TrackContent() {
             ))}
           </div>
 
-          <div className="border-t pt-3 text-sm text-neutral-500">
+          <div className="border-t pt-3 text-sm text-neutral-500 mb-4">
             <p>
               Delivering to: {order.customer_address}
               {order.delivery_lga ? `, ${order.delivery_lga}` : ''}
             </p>
           </div>
+
+          {reorderError && <p className="text-red-500 text-sm mb-3">{reorderError}</p>}
+          <button
+            type="button"
+            onClick={handleReorder}
+            disabled={reordering}
+            className="btn-primary w-full disabled:opacity-50"
+          >
+            {reordering ? 'Adding to cart...' : 'Reorder these items'}
+          </button>
         </div>
       )}
     </div>
