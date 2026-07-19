@@ -8,8 +8,7 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: '#f97316', // orange-500
-        secondary: '#1f2937', // gray-800
+        primary: '#f97316', // orange-500 — used for spinner borders (success page, LoadingSpinner)
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
