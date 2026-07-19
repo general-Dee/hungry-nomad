@@ -6,6 +6,7 @@ import { TransitionProvider } from '@/context/TransitionContext';
 import Header from '@/components/Header';
 import ToastProvider from '@/components/ToastProvider';
 import MetaPixel from '@/components/MetaPixel';
+import StickyCartBar from '@/components/StickyCartBar';
 import Providers from './providers';
 import { GoogleAnalytics } from '@next/third-parties/google';
 
@@ -148,6 +149,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     </div>
                   </div>
                 </footer>
+                <StickyCartBar />
               </ToastProvider>
             </TransitionProvider>
           </CartProvider>
