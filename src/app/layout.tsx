@@ -11,6 +11,7 @@ import StickyCartBar from '@/components/StickyCartBar';
 import CartDrawer from '@/components/CartDrawer';
 import Providers from './providers';
 import { GoogleAnalytics } from '@next/third-parties/google';
+import { SITE_URL } from '@/lib/site';
 
 const inter = Inter({ subsets: ['latin'], display: 'swap' });
 
@@ -22,11 +23,11 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Hungry Nomad – Kaduna’s Finest Meals',
     description: 'Satisfy your cravings with our fast food, local dishes, and Chinese specialties.',
-    url: 'https://yourdomain.com',
+    url: SITE_URL,
     siteName: 'Hungry Nomad',
     images: [
       {
-        url: 'https://yourdomain.com/og-image.jpg',
+        url: `${SITE_URL}/og-image.jpg`,
         width: 1200,
         height: 630,
         alt: 'Hungry Nomad - Delicious food in Kaduna',
@@ -39,7 +40,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Hungry Nomad – Order Online',
     description: 'Best food delivery in Kaduna',
-    images: ['https://yourdomain.com/og-image.jpg'],
+    images: [`${SITE_URL}/og-image.jpg`],
   },
   robots: {
     index: true,
@@ -83,12 +84,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 "latitude": "10.5105",
                 "longitude": "7.4165"
               },
-              "url": "https://yourdomain.com",
+              "url": SITE_URL,
               "telephone": "+2348023456789",
               "servesCuisine": ["Fast Food", "Nigerian", "Chinese"],
               "priceRange": "₦1500 - ₦5000",
               "openingHours": "Mo-Su 10:00-22:00",
-              "image": "https://yourdomain.com/restaurant-image.jpg"
+              "image": `${SITE_URL}/restaurant-image.jpg`
             })
           }}
         />
