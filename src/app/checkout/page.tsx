@@ -33,7 +33,7 @@ declare global {
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cart, getCartTotal, clearCart } = useCart();
+  const { cart, isLoaded, getCartTotal, clearCart } = useCart();
   const subtotal = getCartTotal();
   const [deliveryFee, setDeliveryFee] = useState(0);
   const takeawayFee = TAKEAWAY_FEE;
@@ -67,8 +67,14 @@ export default function CheckoutPage() {
     script.onload = () => setPaystackReady(true);
     script.onerror = () => setError('Failed to load payment gateway.');
     document.body.appendChild(script);
-    if (cart.length === 0) router.push('/cart');
-  }, [cart, router]);
+  }, []);
+
+  // Redirect to /cart if it's genuinely empty — but only once the cart has
+  // finished loading from localStorage, otherwise this fires on every fresh
+  // page load before the saved cart has had a chance to populate.
+  useEffect(() => {
+    if (isLoaded && cart.length === 0) router.push('/cart');
+  }, [isLoaded, cart, router]);
 
   // Fetch delivery zones
   useEffect(() => {
@@ -211,6 +217,10 @@ export default function CheckoutPage() {
       setLoading(false);
     }
   };
+
+  if (!isLoaded) {
+    return <div className="container mx-auto px-4 py-16 text-center text-gray-500">Loading your cart...</div>;
+  }
 
   if (cart.length === 0) {
     return (

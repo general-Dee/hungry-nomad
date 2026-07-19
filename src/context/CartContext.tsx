@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useState, ReactNode } from 'react';
 import { Product, CartItem } from '@/types';
 
 type CartState = CartItem[];
@@ -9,10 +9,12 @@ type CartAction =
   | { type: 'ADD_ITEM'; payload: Product }
   | { type: 'REMOVE_ITEM'; payload: number }
   | { type: 'UPDATE_QUANTITY'; payload: { id: number; quantity: number } }
-  | { type: 'CLEAR_CART' };
+  | { type: 'CLEAR_CART' }
+  | { type: 'HYDRATE'; payload: CartState };
 
 const CartContext = createContext<{
   cart: CartState;
+  isLoaded: boolean;
   addToCart: (product: Product) => void;
   removeFromCart: (id: number) => void;
   updateQuantity: (id: number, quantity: number) => void;
@@ -43,6 +45,8 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
       );
     case 'CLEAR_CART':
       return [];
+    case 'HYDRATE':
+      return action.payload;
     default:
       return state;
   }
@@ -50,29 +54,30 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
 
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [cart, dispatch] = useReducer(cartReducer, []);
+  const [isLoaded, setIsLoaded] = useState(false);
 
-  // Load cart from localStorage on mount
+  // Load cart from localStorage on mount. Dispatches HYDRATE once with the
+  // full parsed array (rather than replaying ADD_ITEM per item) so this stays
+  // correct even if React Strict Mode double-invokes this effect in dev.
   useEffect(() => {
     const saved = localStorage.getItem('cart');
     if (saved) {
       try {
         const parsed = JSON.parse(saved) as CartItem[];
-        parsed.forEach((item) => {
-          dispatch({ type: 'ADD_ITEM', payload: item });
-          if (item.quantity > 1) {
-            dispatch({ type: 'UPDATE_QUANTITY', payload: { id: item.id, quantity: item.quantity } });
-          }
-        });
+        dispatch({ type: 'HYDRATE', payload: parsed });
       } catch {
         // Ignore parse errors – cart will start empty
       }
     }
+    setIsLoaded(true);
   }, []);
 
-  // Save cart to localStorage on change
+  // Save cart to localStorage on change (skip until the initial load above has run,
+  // so we don't briefly overwrite storage with the empty pre-hydration state)
   useEffect(() => {
+    if (!isLoaded) return;
     localStorage.setItem('cart', JSON.stringify(cart));
-  }, [cart]);
+  }, [cart, isLoaded]);
 
   const addToCart = (product: Product) => dispatch({ type: 'ADD_ITEM', payload: product });
   const removeFromCart = (id: number) => dispatch({ type: 'REMOVE_ITEM', payload: id });
@@ -86,6 +91,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     <CartContext.Provider
       value={{
         cart,
+        isLoaded,
         addToCart,
         removeFromCart,
         updateQuantity,

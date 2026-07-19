@@ -7,9 +7,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { TAKEAWAY_FEE, requiresTakeawayFee } from '@/lib/pricing';
 
 export default function CartPage() {
-  const { cart, updateQuantity, removeFromCart, getCartTotal, clearCart } = useCart();
+  const { cart, isLoaded, updateQuantity, removeFromCart, getCartTotal, clearCart } = useCart();
   const total = getCartTotal();
   const takeawayFee = requiresTakeawayFee(cart) ? TAKEAWAY_FEE : 0;
+
+  if (!isLoaded) {
+    return <div className="container mx-auto px-4 py-24 text-center text-neutral-500">Loading your cart...</div>;
+  }
 
   if (cart.length === 0) {
     return (
