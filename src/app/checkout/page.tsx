@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { supabase } from '@/lib/supabaseClient';
 import { event, metaPixelEvent } from '@/lib/tracking';
+import { TAKEAWAY_FEE, requiresTakeawayFee } from '@/lib/pricing';
 import { ChevronLeftIcon, MapPinIcon, ShoppingCartIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 
@@ -35,7 +36,7 @@ export default function CheckoutPage() {
   const { cart, getCartTotal, clearCart } = useCart();
   const subtotal = getCartTotal();
   const [deliveryFee, setDeliveryFee] = useState(0);
-  const takeawayFee = 300;
+  const takeawayFee = TAKEAWAY_FEE;
   const [shouldAddTakeaway, setShouldAddTakeaway] = useState(false);
   const [totalAmount, setTotalAmount] = useState(subtotal);
   const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
@@ -91,10 +92,7 @@ export default function CheckoutPage() {
 
   // Determine if takeaway pack is needed (cart contains Regular or Chinese items)
   useEffect(() => {
-    const hasRegularOrChinese = cart.some(item =>
-      item.category === 'regular' || item.category === 'chinese'
-    );
-    setShouldAddTakeaway(hasRegularOrChinese);
+    setShouldAddTakeaway(requiresTakeawayFee(cart));
   }, [cart]);
 
   // Recalculate total

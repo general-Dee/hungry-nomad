@@ -4,10 +4,12 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useCart } from '@/context/CartContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { TAKEAWAY_FEE, requiresTakeawayFee } from '@/lib/pricing';
 
 export default function CartPage() {
   const { cart, updateQuantity, removeFromCart, getCartTotal, clearCart } = useCart();
   const total = getCartTotal();
+  const takeawayFee = requiresTakeawayFee(cart) ? TAKEAWAY_FEE : 0;
 
   if (cart.length === 0) {
     return (
@@ -61,8 +63,11 @@ export default function CartPage() {
             <h2 className="text-2xl font-bold mb-4">Summary</h2>
             <div className="space-y-2">
               <div className="flex justify-between"><span>Subtotal</span><span>₦{total.toLocaleString()}</span></div>
-              <div className="flex justify-between"><span>Delivery</span><span>₦500</span></div>
-              <div className="border-t pt-2 mt-2 font-bold text-xl flex justify-between"><span>Total</span><span>₦{(total + 500).toLocaleString()}</span></div>
+              {takeawayFee > 0 && (
+                <div className="flex justify-between"><span>Takeaway pack fee</span><span>₦{takeawayFee.toLocaleString()}</span></div>
+              )}
+              <div className="flex justify-between text-neutral-500 text-sm"><span>Delivery</span><span>Calculated at checkout</span></div>
+              <div className="border-t pt-2 mt-2 font-bold text-xl flex justify-between"><span>Estimated total</span><span>₦{(total + takeawayFee).toLocaleString()}</span></div>
             </div>
             <Link href="/checkout" className="btn-primary w-full block text-center mt-6">Checkout</Link>
           </div>
