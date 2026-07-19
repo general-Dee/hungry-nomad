@@ -175,7 +175,7 @@ export default function MenuContent({ initialProducts }: { initialProducts: Prod
           transition={{ duration: 0.3 }}
           className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8"
         >
-          {filtered.map(p => <ProductCard key={p.id} product={p} />)}
+          {filtered.map((p, i) => <ProductCard key={p.id} product={p} priority={i < 3} />)}
         </motion.div>
       </AnimatePresence>
     </div>

@@ -39,7 +39,7 @@ export default function CartPage() {
                 className="card-glass p-4 flex flex-col sm:flex-row gap-4 items-center"
               >
                 <div className="relative w-24 h-24 flex-shrink-0 rounded-xl overflow-hidden">
-                  <Image src={item.image_url} alt={item.name} fill className="object-cover" />
+                  <Image src={item.image_url} alt={item.name} fill sizes="96px" className="object-cover" />
                 </div>
                 <div className="flex-1">
                   <h3 className="font-bold text-lg">{item.name}</h3>

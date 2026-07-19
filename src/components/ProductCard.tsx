@@ -6,7 +6,7 @@ import { useCart } from '@/context/CartContext';
 import { useToast } from './ToastProvider';
 import { motion } from 'framer-motion';
 
-export default function ProductCard({ product }: { product: Product }) {
+export default function ProductCard({ product, priority = false }: { product: Product; priority?: boolean }) {
   const { cart, addToCart, updateQuantity } = useCart();
   const toast = useToast();
   const quantity = cart.find((item) => item.id === product.id)?.quantity ?? 0;
@@ -24,6 +24,8 @@ export default function ProductCard({ product }: { product: Product }) {
           src={product.image_url}
           alt={product.name}
           fill
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          priority={priority}
           className="object-cover transition-transform duration-700 group-hover:scale-110"
         />
         <div className="absolute top-3 right-3 bg-amber-500/90 backdrop-blur-sm text-white text-sm font-bold px-3 py-1 rounded-full shadow-lg">
