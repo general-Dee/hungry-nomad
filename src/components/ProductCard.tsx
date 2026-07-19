@@ -7,8 +7,9 @@ import { useToast } from './ToastProvider';
 import { motion } from 'framer-motion';
 
 export default function ProductCard({ product }: { product: Product }) {
-  const { addToCart } = useCart();
+  const { cart, addToCart, updateQuantity } = useCart();
   const toast = useToast();
+  const quantity = cart.find((item) => item.id === product.id)?.quantity ?? 0;
 
   return (
     <motion.div
@@ -32,13 +33,33 @@ export default function ProductCard({ product }: { product: Product }) {
       <div className="p-5">
         <h3 className="text-xl font-bold text-neutral-800">{product.name}</h3>
         <p className="text-neutral-500 text-sm mt-1 line-clamp-2">{product.description}</p>
-        <button
-          onClick={() => { addToCart(product); toast(`✨ ${product.name} added`, 'success'); }}
-          className="mt-5 w-full bg-gradient-to-r from-amber-600 to-amber-500 text-white py-2.5 rounded-full font-semibold 
-                     hover:shadow-lg transition-all transform active:scale-95"
-        >
-          Add to Cart
-        </button>
+        {quantity === 0 ? (
+          <button
+            onClick={() => { addToCart(product); toast(`✨ ${product.name} added`, 'success'); }}
+            className="mt-5 w-full bg-gradient-to-r from-amber-600 to-amber-500 text-white py-2.5 rounded-full font-semibold
+                       hover:shadow-lg transition-all transform active:scale-95"
+          >
+            Add to Cart
+          </button>
+        ) : (
+          <div className="mt-5 flex items-center justify-between">
+            <button
+              onClick={() => updateQuantity(product.id, quantity - 1)}
+              aria-label={`Decrease quantity of ${product.name}`}
+              className="w-10 h-10 rounded-full bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center font-bold text-lg transition active:scale-95"
+            >
+              −
+            </button>
+            <span className="font-bold text-lg">{quantity}</span>
+            <button
+              onClick={() => updateQuantity(product.id, quantity + 1)}
+              aria-label={`Increase quantity of ${product.name}`}
+              className="w-10 h-10 rounded-full bg-gradient-to-r from-amber-600 to-amber-500 text-white flex items-center justify-center font-bold text-lg transition active:scale-95"
+            >
+              +
+            </button>
+          </div>
+        )}
       </div>
     </motion.div>
   );
