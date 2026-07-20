@@ -138,14 +138,9 @@ export default function CheckoutPage() {
       customer_phone: formData.customer_phone,
       customer_address: formData.customer_address,
       delivery_lga: formData.delivery_lga,
-      delivery_fee: deliveryFee,
-      takeaway_pack: shouldAddTakeaway,
-      takeaway_fee: shouldAddTakeaway ? takeawayFee : 0,
-      total_amount: totalAmount,
       items: cart.map(item => ({
         product_id: item.id,
         quantity: item.quantity,
-        price_at_time: item.price,
       })),
     };
     const response = await fetch('/api/orders', {
@@ -210,7 +205,7 @@ export default function CheckoutPage() {
       const handler = window.PaystackPop.setup({
         key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY!,
         email: formData.customer_email,
-        amount: totalAmount * 100,
+        amount: order.total_amount * 100,
         currency: 'NGN',
         metadata: {
           custom_fields: [

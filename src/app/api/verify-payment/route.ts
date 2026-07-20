@@ -29,6 +29,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const { data: existingOrder, error: fetchOrderError } = await supabase
+      .from('orders')
+      .select('total_amount')
+      .eq('id', order_id)
+      .single();
+
+    if (fetchOrderError || !existingOrder) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    }
+
+    // Paystack's amount is the ground truth for what was actually charged —
+    // confirm it matches the order total before marking the order paid, so a
+    // request forged with a mismatched order_id/reference pair (or a client
+    // that got the Paystack amount changed some other way) can't slip an
+    // underpaid order through as 'paid'.
+    const expectedAmountKobo = Math.round(existingOrder.total_amount * 100);
+    if (data.data.amount !== expectedAmountKobo) {
+      console.error('Payment amount mismatch', {
+        order_id,
+        expected: expectedAmountKobo,
+        received: data.data.amount,
+      });
+      return NextResponse.json(
+        { success: false, error: 'Payment amount does not match order total' },
+        { status: 400 }
+      );
+    }
+
     // Update order status
     const { data: order, error: updateError } = await supabase
       .from('orders')

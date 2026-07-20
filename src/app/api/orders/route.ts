@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabaseClient';
 import { orderCreateRatelimit, getClientIp } from '@/lib/ratelimit';
 import { isWithinBusinessHours, BUSINESS_HOURS_LABEL } from '@/lib/businessHours';
+import { TAKEAWAY_FEE, requiresTakeawayFee } from '@/lib/pricing';
 
 interface OrderRequestBody {
   customer_name: string;
@@ -9,9 +10,7 @@ interface OrderRequestBody {
   customer_phone: string;
   customer_address: string;
   delivery_lga: string;
-  delivery_fee: number;
-  total_amount: number;
-  items: { product_id: number; quantity: number; price_at_time: number }[];
+  items: { product_id: number; quantity: number }[];
 }
 
 export async function POST(request: NextRequest) {
@@ -34,16 +33,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = (await request.json()) as OrderRequestBody;
-    const {
-      customer_name,
-      customer_email,
-      customer_phone,
-      customer_address,
-      delivery_lga,
-      delivery_fee,
-      total_amount,
-      items,
-    } = body;
+    const { customer_name, customer_email, customer_phone, customer_address, delivery_lga, items } = body;
 
     if (
       !customer_name ||
@@ -51,13 +41,52 @@ export async function POST(request: NextRequest) {
       !customer_phone ||
       !customer_address ||
       !delivery_lga ||
-      delivery_fee === undefined ||
-      !total_amount ||
       !items ||
-      items.length === 0
+      items.length === 0 ||
+      items.some((item) => !item.product_id || !item.quantity || item.quantity <= 0)
     ) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
+
+    // Prices, delivery fee, and takeaway fee are always derived from the
+    // database here — the client only supplies product IDs, quantities and a
+    // delivery zone name, never money amounts, so a tampered request can't
+    // change what actually gets charged.
+    const productIds = [...new Set(items.map((item) => item.product_id))];
+    const { data: products, error: productsError } = await supabase
+      .from('products')
+      .select('id, price, category')
+      .in('id', productIds);
+
+    if (productsError || !products || products.length !== productIds.length) {
+      return NextResponse.json({ error: 'One or more items are unavailable' }, { status: 400 });
+    }
+
+    const { data: zone, error: zoneError } = await supabase
+      .from('delivery_zones')
+      .select('lga_name, fee')
+      .eq('lga_name', delivery_lga)
+      .single();
+
+    if (zoneError || !zone) {
+      return NextResponse.json({ error: 'Invalid delivery zone' }, { status: 400 });
+    }
+
+    const productById = new Map(products.map((p) => [p.id, p]));
+    const orderItems = items.map((item) => {
+      const product = productById.get(item.product_id)!;
+      return {
+        product_id: item.product_id,
+        quantity: item.quantity,
+        price_at_time: product.price,
+        category: product.category,
+      };
+    });
+
+    const subtotal = orderItems.reduce((sum, item) => sum + item.price_at_time * item.quantity, 0);
+    const deliveryFee = zone.fee;
+    const takeawayFee = requiresTakeawayFee(orderItems) ? TAKEAWAY_FEE : 0;
+    const total_amount = subtotal + deliveryFee + takeawayFee;
 
     const { data: order, error: orderError } = await supabase
       .from('orders')
@@ -66,8 +95,8 @@ export async function POST(request: NextRequest) {
         customer_email,
         customer_phone,
         customer_address,
-        delivery_lga,
-        delivery_fee,
+        delivery_lga: zone.lga_name,
+        delivery_fee: deliveryFee,
         total_amount,
         status: 'pending',
       })
@@ -79,14 +108,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create order' }, { status: 500 });
     }
 
-    const orderItems = items.map((item) => ({
-      order_id: order.id,
-      product_id: item.product_id,
-      quantity: item.quantity,
-      price_at_time: item.price_at_time,
-    }));
-
-    const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
+    const { error: itemsError } = await supabase.from('order_items').insert(
+      orderItems.map(({ product_id, quantity, price_at_time }) => ({
+        order_id: order.id,
+        product_id,
+        quantity,
+        price_at_time,
+      }))
+    );
 
     if (itemsError) {
       console.error('Order items error:', itemsError);
