@@ -1,6 +1,16 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+let resend: Resend | null = null;
+
+// Constructed lazily — Resend's constructor throws when the key is missing,
+// and Next.js imports this module at build time to collect page data, so
+// building without RESEND_API_KEY set would otherwise crash the build even
+// though every caller here already tolerates the key being absent.
+function getResendClient(): Resend | null {
+  if (!process.env.RESEND_API_KEY) return null;
+  if (!resend) resend = new Resend(process.env.RESEND_API_KEY);
+  return resend;
+}
 
 const FROM_EMAIL = process.env.ORDER_EMAIL_FROM || 'onboarding@resend.dev';
 const STAFF_EMAIL = process.env.STAFF_EMAIL;
@@ -35,7 +45,8 @@ function renderItemsTable(items: OrderEmailItem[]) {
 }
 
 export async function sendOrderConfirmationEmail(order: OrderEmailDetails, items: OrderEmailItem[]) {
-  if (!process.env.RESEND_API_KEY) {
+  const resend = getResendClient();
+  if (!resend) {
     console.warn('RESEND_API_KEY not set — skipping customer confirmation email');
     return;
   }
@@ -58,7 +69,8 @@ export async function sendOrderConfirmationEmail(order: OrderEmailDetails, items
 }
 
 export async function sendStaffOrderAlertEmail(order: OrderEmailDetails, items: OrderEmailItem[]) {
-  if (!process.env.RESEND_API_KEY || !STAFF_EMAIL) {
+  const resend = getResendClient();
+  if (!resend || !STAFF_EMAIL) {
     console.warn('RESEND_API_KEY or STAFF_EMAIL not set — skipping staff order alert email');
     return;
   }
