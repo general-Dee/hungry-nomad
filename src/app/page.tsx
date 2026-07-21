@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import ProductCard from '@/components/ProductCard';
+import OpenStatusBadge from '@/components/OpenStatusBadge';
 
 async function getFeatured() {
   const { data } = await supabase.from('products').select('*').limit(6);
@@ -39,6 +40,14 @@ export default async function Home() {
           <p className="text-xl md:text-2xl mt-6 font-light max-w-2xl mx-auto leading-relaxed">
             Savor the best of Kaduna – Fast Food, Traditional Delicacies, Chinese Cuisine & Ice Cream.
           </p>
+
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-sm border border-white/25 text-white text-xs font-semibold">
+              🛵 Fast local delivery
+            </span>
+            <OpenStatusBadge variant="dark" />
+          </div>
+
           <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/menu" className="btn-primary bg-white text-amber-700 hover:bg-amber-50 shadow-lg transform hover:scale-105 transition-all duration-300">
               Explore Menu

@@ -80,7 +80,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               "description": "Fast food, traditional Nigerian dishes and Chinese cuisine in Kaduna.",
               "address": {
                 "@type": "PostalAddress",
-                "streetAddress": "123 Ahmadu Bello Way",
+                "streetAddress": "4 Ibrahim Zaki road",
                 "addressLocality": "Kaduna",
                 "addressRegion": "Kaduna",
                 "addressCountry": "NG"
@@ -91,7 +91,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 "longitude": "7.4165"
               },
               "url": SITE_URL,
-              "telephone": "+2348023456789",
+              "telephone": "+2347062169786",
               "servesCuisine": ["Fast Food", "Nigerian", "Chinese"],
               "priceRange": "₦1500 - ₦5000",
               "openingHours": "Mo-Su 11:00-21:30",

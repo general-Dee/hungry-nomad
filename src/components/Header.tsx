@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCart } from '@/context/CartContext';
 import { useCartDrawer } from '@/context/CartDrawerContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import OpenStatusBadge from './OpenStatusBadge';
 
 export default function Header() {
   const { getCartCount } = useCart();
@@ -13,12 +14,15 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 bg-white/70 backdrop-blur-xl border-b border-neutral-200/50 shadow-sm">
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-        <Link href="/" className="font-display text-2xl font-extrabold tracking-tight group">
-          <span className="bg-gradient-to-r from-amber-600 to-amber-500 bg-clip-text text-transparent">
-            Hungry
-          </span>
-          <span className="text-secondary group-hover:text-amber-600 transition"> Nomad</span>
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link href="/" className="font-display text-2xl font-extrabold tracking-tight group">
+            <span className="bg-gradient-to-r from-amber-600 to-amber-500 bg-clip-text text-transparent">
+              Hungry
+            </span>
+            <span className="text-secondary group-hover:text-amber-600 transition"> Nomad</span>
+          </Link>
+          <OpenStatusBadge className="hidden sm:inline-flex" />
+        </div>
 
         <nav className="hidden md:flex items-center space-x-8">
           <NavLink href="/">Home</NavLink>

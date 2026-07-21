@@ -21,6 +21,8 @@ export interface Order {
   customer_email: string;
   customer_phone: string;
   customer_address: string;
+  delivery_lga: string;
+  delivery_fee: number;
   total_amount: number;
   payment_reference: string | null;
   status: 'pending' | 'paid' | 'failed' | 'delivered';

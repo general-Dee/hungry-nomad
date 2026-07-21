@@ -238,7 +238,7 @@ export default function CheckoutPage() {
         <ShoppingCartIcon className="mx-auto h-16 w-16 text-gray-300" />
         <h2 className="mt-4 text-2xl font-semibold">Your cart is empty</h2>
         <p className="mt-2 text-gray-500">Add some delicious items to your cart before checking out.</p>
-        <Link href="/menu" className="mt-6 inline-block rounded-full bg-amber-600 px-6 py-2 text-white hover:bg-amber-700">
+        <Link href="/menu" className="btn-primary mt-6 inline-block">
           Browse Menu
         </Link>
       </div>
@@ -246,7 +246,7 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen py-8">
       <div className="container mx-auto px-4">
         <div className="mb-8 flex items-center gap-3">
           <button
@@ -270,7 +270,7 @@ export default function CheckoutPage() {
 
         <div className="flex flex-col gap-8 lg:flex-row">
           <div className="flex-1">
-            <div className="rounded-2xl bg-white p-6 shadow-sm">
+            <div className="card-glass p-6">
               <div className="mb-6 flex items-center gap-2 border-b pb-3">
                 <MapPinIcon className="h-5 w-5 text-amber-600" />
                 <h2 className="text-lg font-semibold">Delivery Information</h2>
@@ -290,7 +290,7 @@ export default function CheckoutPage() {
                     name="customer_name"
                     value={formData.customer_name}
                     onChange={handleInputChange}
-                    className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200"
+                    className="input-field"
                     required
                   />
                 </div>
@@ -301,7 +301,7 @@ export default function CheckoutPage() {
                     name="customer_email"
                     value={formData.customer_email}
                     onChange={handleInputChange}
-                    className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200"
+                    className="input-field"
                     required
                   />
                 </div>
@@ -312,7 +312,7 @@ export default function CheckoutPage() {
                     name="customer_phone"
                     value={formData.customer_phone}
                     onChange={handleInputChange}
-                    className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200"
+                    className="input-field"
                     required
                   />
                 </div>
@@ -323,7 +323,7 @@ export default function CheckoutPage() {
                     value={formData.customer_address}
                     onChange={handleInputChange}
                     rows={3}
-                    className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200"
+                    className="input-field"
                     required
                   />
                 </div>
@@ -335,7 +335,7 @@ export default function CheckoutPage() {
                     <select
                       value={selectedZoneId || ''}
                       onChange={(e) => handleZoneChange(Number(e.target.value))}
-                      className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200"
+                      className="input-field"
                       required
                     >
                       <option value="">Select LGA</option>
@@ -352,7 +352,7 @@ export default function CheckoutPage() {
           </div>
 
           <div className="lg:w-96">
-            <div className="sticky top-24 rounded-2xl bg-white p-6 shadow-sm">
+            <div className="sticky top-24 card-glass p-6">
               <h2 className="text-lg font-semibold">Order summary</h2>
               <div className="mt-4 divide-y divide-gray-100">
                 <div className="space-y-2 pb-3">
@@ -390,7 +390,7 @@ export default function CheckoutPage() {
               <button
                 onClick={handlePayment}
                 disabled={loading || !paystackReady || loadingZones || !selectedZoneId || !isOpen}
-                className="mt-6 w-full rounded-full bg-amber-600 py-3 font-semibold text-white transition hover:bg-amber-700 disabled:opacity-50"
+                className="btn-primary mt-6 w-full py-3 disabled:opacity-50"
               >
                 {!isOpen ? "We're closed right now" : loading ? 'Processing...' : !paystackReady ? 'Loading payment...' : 'Proceed to payment'}
               </button>
