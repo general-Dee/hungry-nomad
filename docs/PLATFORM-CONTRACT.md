@@ -52,7 +52,8 @@ in the orders API.
 ### `orders`
 Written by `src/app/api/orders/route.ts` (insert, `status: 'pending'`) and
 `src/app/api/verify-payment/route.ts` (update, `status: 'paid'` +
-`payment_reference`). Read by `src/app/api/orders/[id]/route.ts` and
+`payment_reference`). Read by `src/app/api/orders/[id]/route.ts` (requires a
+matching `reference` query param, see §4) and
 `src/app/api/orders/track/route.ts`.
 
 Columns confirmed in use by code (insert/select), combining the `Order` TS
@@ -196,6 +197,27 @@ status: 'pending' | 'paid' | 'failed' | 'delivered'
   (`POST /api/verify-payment`).
 - `'failed'` and `'delivered'` — not written by any *automatic* flow, but as
   of this update can be set via the status-transition endpoint below.
+
+### `GET /api/orders/[id]` — fetch an order's details
+
+`orders.id` is a small sequential integer, so a bare lookup-by-id would let
+anyone enumerate every order (and every customer's name, phone, email, and
+address) by walking `/api/orders/1`, `/2`, `/3`, ... This endpoint requires
+the caller to already know the order's Paystack payment reference, proving
+they were part of the checkout: pass it as a `reference` query param (e.g.
+`GET /api/orders/123?reference=<payment_reference>`). The `reference` is
+compared against the order's stored `payment_reference` column; if it's
+missing or doesn't match, the endpoint returns `404` — the same status code
+used when the order id itself doesn't exist, so a caller can't distinguish
+"wrong id" from "wrong reference" via status code. This mirrors the
+ownership-proof pattern `POST /api/orders/track` uses (phone-number match
+instead of payment reference). Also rate-limited via
+`src/lib/ratelimit.ts` (`orderGetRatelimit`), same graceful no-op-if-Upstash-
+isn't-configured behavior as the other order routes.
+
+The only in-app caller is `src/app/success/page.tsx`, right after payment
+verification succeeds, where both `order_id` and `reference` are already
+available from the success-page URL's search params.
 
 ### Status transition state machine
 

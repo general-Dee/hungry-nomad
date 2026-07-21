@@ -46,7 +46,7 @@ function SuccessContent() {
           setStatus('success');
           setOrderId(orderIdParam);
           // Fetch order details to fire purchase event
-          const orderRes = await fetch(`/api/orders/${orderIdParam}`);
+          const orderRes = await fetch(`/api/orders/${orderIdParam}?reference=${reference}`);
           const orderData = (await orderRes.json()) as OrderWithItems;
 
           // GA4 purchase

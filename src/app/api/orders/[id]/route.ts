@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { timingSafeEqual } from 'crypto';
 import { supabase } from '@/lib/supabaseClient';
 import { isValidOrderStatus, validateTransition, OrderStatus } from '@/lib/orderStatus';
+import { orderGetRatelimit, getClientIp } from '@/lib/ratelimit';
 
 type OrderItemWithProduct = {
   product_id: number;
@@ -10,11 +11,36 @@ type OrderItemWithProduct = {
   products: { name: string };
 };
 
+// GET /api/orders/[id] — fetch an order's details.
+//
+// `orders.id` is a small sequential integer, so this must not be a bare
+// lookup-by-id: anyone could enumerate every order in the system. Callers
+// must also prove they already know the order's Paystack payment reference
+// (the same ownership-proof pattern used by POST /api/orders/track, which
+// requires a matching phone number). If the reference is missing or doesn't
+// match, we return 404 either way — never a different status code for
+// "order doesn't exist" vs. "reference is wrong" — so the id itself can't be
+// enumerated via response-code differences.
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  if (orderGetRatelimit) {
+    const { success } = await orderGetRatelimit.limit(getClientIp(request));
+    if (!success) {
+      return NextResponse.json(
+        { error: 'Too many attempts. Please wait a moment and try again.' },
+        { status: 429 }
+      );
+    }
+  }
+
   const orderId = params.id;
+  const reference = request.nextUrl.searchParams.get('reference');
+
+  if (!reference) {
+    return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+  }
 
   const { data: order, error: orderError } = await supabase
     .from('orders')
@@ -22,7 +48,7 @@ export async function GET(
     .eq('id', orderId)
     .single();
 
-  if (orderError) {
+  if (orderError || !order || order.payment_reference !== reference) {
     return NextResponse.json({ error: 'Order not found' }, { status: 404 });
   }
 

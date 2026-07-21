@@ -30,6 +30,17 @@ export const orderTrackRatelimit = redis
     })
   : null;
 
+// Order fetch by id: only called by the success page right after payment
+// verification, and requires a matching payment reference, but still
+// rate-limited to slow down brute-forcing of the reference value.
+export const orderGetRatelimit = redis
+  ? new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(10, '1 m'),
+      prefix: 'ratelimit:orders:get',
+    })
+  : null;
+
 export function getClientIp(request: NextRequest): string {
   return (
     request.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
