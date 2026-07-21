@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabaseClient';
 import { orderCreateRatelimit, getClientIp } from '@/lib/ratelimit';
 import { isWithinBusinessHours, BUSINESS_HOURS_LABEL } from '@/lib/businessHours';
-import { TAKEAWAY_FEE, requiresTakeawayFee } from '@/lib/pricing';
+import { computeOrderTotal } from '@/lib/pricing';
 
 interface OrderRequestBody {
   customer_name: string;
@@ -83,10 +83,8 @@ export async function POST(request: NextRequest) {
       };
     });
 
-    const subtotal = orderItems.reduce((sum, item) => sum + item.price_at_time * item.quantity, 0);
     const deliveryFee = zone.fee;
-    const takeawayFee = requiresTakeawayFee(orderItems) ? TAKEAWAY_FEE : 0;
-    const total_amount = subtotal + deliveryFee + takeawayFee;
+    const { total: total_amount } = computeOrderTotal(orderItems, deliveryFee);
 
     const { data: order, error: orderError } = await supabase
       .from('orders')
