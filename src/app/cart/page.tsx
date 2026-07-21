@@ -50,10 +50,28 @@ export default function CartPage() {
                   <p className="text-amber-600 font-medium">₦{item.price.toLocaleString()}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200">-</button>
+                  <button
+                    onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                    aria-label={`Decrease quantity of ${item.name}`}
+                    className="w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200"
+                  >
+                    -
+                  </button>
                   <span className="w-8 text-center font-medium">{item.quantity}</span>
-                  <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200">+</button>
-                  <button onClick={() => removeFromCart(item.id)} className="text-red-500 hover:text-red-700 ml-2 text-sm">Remove</button>
+                  <button
+                    onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                    aria-label={`Increase quantity of ${item.name}`}
+                    className="w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200"
+                  >
+                    +
+                  </button>
+                  <button
+                    onClick={() => removeFromCart(item.id)}
+                    aria-label={`Remove ${item.name} from cart`}
+                    className="text-red-500 hover:text-red-700 ml-2 text-sm"
+                  >
+                    Remove
+                  </button>
                 </div>
                 <div className="font-bold min-w-[80px] text-right">₦{(item.price * item.quantity).toLocaleString()}</div>
               </motion.div>

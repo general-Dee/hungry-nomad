@@ -15,6 +15,18 @@ function getResendClient(): Resend | null {
 const FROM_EMAIL = process.env.ORDER_EMAIL_FROM || 'onboarding@resend.dev';
 const STAFF_EMAIL = process.env.STAFF_EMAIL;
 
+// Escapes user-supplied strings before they're interpolated into HTML email
+// templates, to prevent HTML/markup injection via order fields (name,
+// address, item names, etc).
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export interface OrderEmailItem {
   product_name: string;
   quantity: number;
@@ -36,7 +48,7 @@ function renderItemsTable(items: OrderEmailItem[]) {
     .map(
       (item) => `
         <tr>
-          <td style="padding:6px 0;">${item.product_name} &times;${item.quantity}</td>
+          <td style="padding:6px 0;">${escapeHtml(item.product_name)} &times;${item.quantity}</td>
           <td style="padding:6px 0; text-align:right;">&#8358;${(item.price_at_time * item.quantity).toLocaleString()}</td>
         </tr>`
     )
@@ -56,11 +68,11 @@ export async function sendOrderConfirmationEmail(order: OrderEmailDetails, items
       to: order.customer_email,
       subject: `Order Confirmed – Hungry Nomad #${order.id}`,
       html: `
-        <h2>Thanks for your order, ${order.customer_name}!</h2>
+        <h2>Thanks for your order, ${escapeHtml(order.customer_name)}!</h2>
         <p>Your order <strong>#${order.id}</strong> is confirmed and being prepared.</p>
         ${renderItemsTable(items)}
         <p style="margin-top:16px;"><strong>Total: &#8358;${order.total_amount.toLocaleString()}</strong></p>
-        <p>Delivering to: ${order.customer_address}${order.delivery_lga ? `, ${order.delivery_lga}` : ''}</p>
+        <p>Delivering to: ${escapeHtml(order.customer_address)}${order.delivery_lga ? `, ${escapeHtml(order.delivery_lga)}` : ''}</p>
       `,
     });
   } catch (error) {
@@ -81,8 +93,8 @@ export async function sendStaffOrderAlertEmail(order: OrderEmailDetails, items: 
       subject: `New Paid Order #${order.id} – ₦${order.total_amount.toLocaleString()}`,
       html: `
         <h2>New order received</h2>
-        <p><strong>${order.customer_name}</strong> — ${order.customer_phone}</p>
-        <p>Deliver to: ${order.customer_address}${order.delivery_lga ? `, ${order.delivery_lga}` : ''}</p>
+        <p><strong>${escapeHtml(order.customer_name)}</strong> — ${escapeHtml(order.customer_phone)}</p>
+        <p>Deliver to: ${escapeHtml(order.customer_address)}${order.delivery_lga ? `, ${escapeHtml(order.delivery_lga)}` : ''}</p>
         ${renderItemsTable(items)}
         <p style="margin-top:16px;"><strong>Total: &#8358;${order.total_amount.toLocaleString()}</strong></p>
       `,

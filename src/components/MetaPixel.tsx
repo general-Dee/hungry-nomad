@@ -39,11 +39,15 @@ export default function MetaPixel() {
         }}
       />
       <noscript>
+        {/* next/image requires JS/the Next.js image optimizer, so it can't be
+            used for a tracking pixel that must render with JS disabled. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           height="1"
           width="1"
           style={{ display: 'none' }}
           src={`https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1`}
+          alt=""
         />
       </noscript>
     </>

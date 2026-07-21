@@ -13,6 +13,12 @@ interface OrderRequestBody {
   items: { product_id: number; quantity: number }[];
 }
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_NAME_LENGTH = 200;
+const MAX_ADDRESS_LENGTH = 200;
+const MAX_PHONE_LENGTH = 20;
+const MAX_ITEM_QUANTITY = 50;
+
 export async function POST(request: NextRequest) {
   try {
     if (!isWithinBusinessHours()) {
@@ -37,15 +43,35 @@ export async function POST(request: NextRequest) {
 
     if (
       !customer_name ||
+      typeof customer_name !== 'string' ||
+      customer_name.length > MAX_NAME_LENGTH ||
       !customer_email ||
+      typeof customer_email !== 'string' ||
+      !EMAIL_REGEX.test(customer_email) ||
       !customer_phone ||
+      typeof customer_phone !== 'string' ||
+      customer_phone.length > MAX_PHONE_LENGTH ||
       !customer_address ||
-      !delivery_lga ||
-      !items ||
-      items.length === 0 ||
-      items.some((item) => !item.product_id || !item.quantity || item.quantity <= 0)
+      typeof customer_address !== 'string' ||
+      customer_address.length > MAX_ADDRESS_LENGTH ||
+      !delivery_lga
     ) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+      return NextResponse.json({ error: 'Missing or invalid required fields' }, { status: 400 });
+    }
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return NextResponse.json({ error: 'Items must be a non-empty array' }, { status: 400 });
+    }
+
+    if (
+      items.some(
+        (item) => !item.product_id || !item.quantity || item.quantity <= 0 || item.quantity > MAX_ITEM_QUANTITY
+      )
+    ) {
+      return NextResponse.json(
+        { error: `Each item must have a valid quantity between 1 and ${MAX_ITEM_QUANTITY}` },
+        { status: 400 }
+      );
     }
 
     // Prices, delivery fee, and takeaway fee are always derived from the

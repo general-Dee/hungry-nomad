@@ -4,13 +4,6 @@ import { supabase } from '@/lib/supabaseClient';
 import { isValidOrderStatus, validateTransition, OrderStatus } from '@/lib/orderStatus';
 import { orderGetRatelimit, getClientIp } from '@/lib/ratelimit';
 
-type OrderItemWithProduct = {
-  product_id: number;
-  quantity: number;
-  price_at_time: number;
-  products: { name: string };
-};
-
 // GET /api/orders/[id] — fetch an order's details.
 //
 // `orders.id` is a small sequential integer, so this must not be a bare

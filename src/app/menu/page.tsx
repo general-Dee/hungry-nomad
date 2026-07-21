@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import * as Sentry from '@sentry/nextjs';
 import MenuContent from './MenuContent';
 import { supabase } from '@/lib/supabaseClient';
 import { Product } from '@/types';
@@ -13,6 +14,7 @@ async function getProducts(): Promise<Product[]> {
 
   if (error) {
     console.error('Failed to fetch products:', error);
+    Sentry.captureException(error);
     return [];
   }
 

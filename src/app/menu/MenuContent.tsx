@@ -133,6 +133,7 @@ export default function MenuContent({ initialProducts }: { initialProducts: Prod
               setActiveChineseSub('all');
               setActiveRegularSub('all');
             }}
+            aria-pressed={activeCategory === cat}
             className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${activeCategory === cat
                 ? 'bg-amber-600 text-white shadow-md'
                 : 'bg-white/60 backdrop-blur-sm text-neutral-700 hover:bg-amber-100'
@@ -150,6 +151,7 @@ export default function MenuContent({ initialProducts }: { initialProducts: Prod
             <button
               key={sub}
               onClick={() => setActiveFastSub(sub)}
+              aria-pressed={activeFastSub === sub}
               className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${activeFastSub === sub
                   ? 'bg-amber-500 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -168,6 +170,7 @@ export default function MenuContent({ initialProducts }: { initialProducts: Prod
             <button
               key={sub}
               onClick={() => setActiveChineseSub(sub)}
+              aria-pressed={activeChineseSub === sub}
               className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${activeChineseSub === sub
                   ? 'bg-amber-500 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -186,6 +189,7 @@ export default function MenuContent({ initialProducts }: { initialProducts: Prod
             <button
               key={sub}
               onClick={() => setActiveRegularSub(sub)}
+              aria-pressed={activeRegularSub === sub}
               className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${activeRegularSub === sub
                   ? 'bg-amber-500 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'

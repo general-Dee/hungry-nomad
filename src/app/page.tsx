@@ -1,10 +1,17 @@
 import Link from 'next/link';
+import * as Sentry from '@sentry/nextjs';
 import { supabase } from '@/lib/supabaseClient';
 import ProductCard from '@/components/ProductCard';
 import OpenStatusBadge from '@/components/OpenStatusBadge';
 
 async function getFeatured() {
-  const { data } = await supabase.from('products').select('*').limit(6);
+  const { data, error } = await supabase.from('products').select('*').limit(6);
+
+  if (error) {
+    Sentry.captureException(error);
+    return [];
+  }
+
   return data || [];
 }
 

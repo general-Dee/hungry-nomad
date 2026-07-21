@@ -82,12 +82,10 @@ function TrackContent() {
       }
 
       let addedCount = 0;
-      let missingCount = 0;
 
       order.items.forEach((item) => {
         const product = products.find((p) => p.id === item.product_id);
         if (!product) {
-          missingCount += 1;
           return;
         }
         const existing = cart.find((c) => c.id === product.id);

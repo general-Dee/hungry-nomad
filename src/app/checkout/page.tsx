@@ -116,7 +116,7 @@ export default function CheckoutPage() {
     let total = subtotal + deliveryFee;
     if (shouldAddTakeaway) total += takeawayFee;
     setTotalAmount(total);
-  }, [subtotal, deliveryFee, shouldAddTakeaway]);
+  }, [subtotal, deliveryFee, shouldAddTakeaway, takeawayFee]);
 
   const handleZoneChange = (zoneId: number) => {
     const zone = deliveryZones.find(z => z.id === zoneId);

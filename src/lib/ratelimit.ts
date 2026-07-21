@@ -10,6 +10,12 @@ const redis =
       })
     : null;
 
+if (!redis) {
+  console.warn(
+    '[ratelimit] UPSTASH_REDIS_REST_URL/UPSTASH_REDIS_REST_TOKEN are not set — rate limiting is disabled and all requests will be allowed.'
+  );
+}
+
 // Order creation: generous enough for a real customer placing an order,
 // tight enough to stop a script from flooding the orders table.
 export const orderCreateRatelimit = redis
