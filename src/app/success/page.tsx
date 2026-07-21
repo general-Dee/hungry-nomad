@@ -107,10 +107,11 @@ function SuccessContent() {
     <div className="container mx-auto px-4 py-16 text-center">
       <div className="text-green-500 text-6xl mb-4">✓</div>
       <h1 className="text-3xl font-bold mb-4">Payment Successful!</h1>
-      <p className="text-gray-600 mb-4">Thank you for your order. Order ID: <strong>{orderId}</strong></p>
-      <p className="text-gray-600 mb-8">We will send you a confirmation email shortly.</p>
+      <p className="text-gray-600 mb-1">Order ID: <strong>{orderId}</strong></p>
+      <p className="text-gray-600 mb-4">We will send you a confirmation email shortly.</p>
+      <p className="text-gray-700 font-medium mb-8">Thank you for your continued patronage — we truly value you and can&apos;t wait to serve you again!</p>
       <div className="space-x-4">
-        <Link href="/" className="btn-primary inline-block">Return Home</Link>
+        <Link href="/" className="btn-primary inline-block">Back to Home</Link>
         <Link href="/menu" className="btn-secondary inline-block">Order More</Link>
       </div>
       <Link href={`/track?order_id=${orderId}`} className="block mt-6 text-sm text-neutral-500 hover:text-amber-600 transition">
