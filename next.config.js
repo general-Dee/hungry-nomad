@@ -26,9 +26,6 @@ const nextConfig = {
       },
     ],
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
 };
 
 module.exports = withSentryConfig(withPWA(nextConfig), {
