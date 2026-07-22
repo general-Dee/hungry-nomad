@@ -27,9 +27,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Only select the fields this route's consumer (src/app/track/page.tsx,
+    // which reads id/customer_address/delivery_lga/total_amount/status/
+    // created_at/items) and the ownership check below actually need — the
+    // full row also carries customer_email/name and payment_reference, which
+    // the frontend never reads and shouldn't be exposed in the response body.
     const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
-      .select('*')
+      .select('id, customer_phone, customer_address, delivery_lga, total_amount, status, created_at')
       .eq('id', order_id)
       .single();
 
@@ -60,7 +65,15 @@ export async function POST(request: NextRequest) {
       price_at_time: item.price_at_time,
     }));
 
-    return NextResponse.json({ ...order, items: formattedItems });
+    return NextResponse.json({
+      id: order.id,
+      customer_address: order.customer_address,
+      delivery_lga: order.delivery_lga,
+      total_amount: order.total_amount,
+      status: order.status,
+      created_at: order.created_at,
+      items: formattedItems,
+    });
   } catch (error) {
     console.error('Order tracking error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

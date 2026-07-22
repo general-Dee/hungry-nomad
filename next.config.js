@@ -1,10 +1,40 @@
 const { withSentryConfig } = require('@sentry/nextjs');
+const defaultRuntimeCaching = require('next-pwa/cache');
 
 const withPWA = require('next-pwa')({
   dest: 'public',
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === 'development',
+  runtimeCaching: [
+    {
+      // Direct Supabase REST calls (menu/product/delivery-zone data fetched
+      // client-side from src/app/menu/page.tsx and src/app/checkout/page.tsx)
+      // carry live pricing, so default workbox caching (NetworkFirst, 1hr TTL)
+      // is too long-lived — a much shorter TTL keeps stale-price exposure to
+      // a few minutes if the network is unreachable, without disabling
+      // offline caching entirely.
+      //
+      // This entry must come before the spread defaults below: workbox uses
+      // first-match-wins, and next-pwa's default list ends with a generic
+      // cross-origin catch-all that would otherwise shadow this one.
+      urlPattern: /^https:\/\/[^/]+\.supabase\.co\/rest\/v1\/.*/i,
+      handler: 'NetworkFirst',
+      options: {
+        cacheName: 'supabase-rest-cache',
+        expiration: {
+          maxEntries: 32,
+          maxAgeSeconds: 5 * 60, // 5 minutes
+        },
+        networkTimeoutSeconds: 10,
+      },
+    },
+    // Supplement, don't replace, next-pwa's default cache list (fonts,
+    // images, JS/CSS chunks, /_next/data, same-origin /api/*, etc.) — passing
+    // any runtimeCaching array overrides next-pwa's `= defaultCache` default
+    // entirely, so the defaults must be spread back in explicitly.
+    ...defaultRuntimeCaching,
+  ],
 });
 
 /** @type {import('next').NextConfig} */

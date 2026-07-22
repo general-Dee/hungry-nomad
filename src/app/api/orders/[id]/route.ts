@@ -35,9 +35,14 @@ export async function GET(
     return NextResponse.json({ error: 'Order not found' }, { status: 404 });
   }
 
+  // Only select the fields this route's consumer (src/app/success/page.tsx,
+  // which reads total_amount/items) and the ownership check below actually
+  // need — the full row also carries customer_email/phone/name and
+  // payment_reference, which the frontend never reads and shouldn't be
+  // exposed in the response body.
   const { data: order, error: orderError } = await supabaseAdmin
     .from('orders')
-    .select('*')
+    .select('id, total_amount, payment_reference')
     .eq('id', orderId)
     .single();
 
@@ -67,7 +72,7 @@ export async function GET(
     price_at_time: item.price_at_time,
   }));
 
-  return NextResponse.json({ ...order, items: formattedItems });
+  return NextResponse.json({ id: order.id, total_amount: order.total_amount, items: formattedItems });
 }
 
 // ---------------------------------------------------------------------------

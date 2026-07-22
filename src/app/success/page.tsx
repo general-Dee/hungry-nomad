@@ -45,33 +45,41 @@ function SuccessContent() {
         if (data.success) {
           setStatus('success');
           setOrderId(orderIdParam);
-          // Fetch order details to fire purchase event
-          const orderRes = await fetch(`/api/orders/${orderIdParam}?reference=${reference}`);
-          const orderData = (await orderRes.json()) as OrderWithItems;
 
-          // GA4 purchase
-          event('purchase', {
-            transaction_id: orderIdParam,
-            value: orderData.total_amount,
-            currency: 'NGN',
-            tax: 0,
-            shipping: 500,
-            items: orderData.items.map((item) => ({
-              item_id: item.product_id.toString(),
-              item_name: item.product_name,
-              price: item.price_at_time,
-              quantity: item.quantity,
-            })),
-          });
+          // Analytics tracking is best-effort and must never downgrade an
+          // already-confirmed success status — a failed/slow/malformed
+          // response here shouldn't show the customer an error screen for a
+          // payment that actually succeeded.
+          try {
+            const orderRes = await fetch(`/api/orders/${orderIdParam}?reference=${reference}`);
+            const orderData = (await orderRes.json()) as OrderWithItems;
 
-          // Meta Pixel purchase
-          metaPixelEvent('Purchase', {
-            value: orderData.total_amount,
-            currency: 'NGN',
-            transaction_id: orderIdParam,
-            content_ids: orderData.items.map((i) => i.product_id.toString()),
-            num_items: orderData.items.reduce((acc, i) => acc + i.quantity, 0),
-          });
+            // GA4 purchase
+            event('purchase', {
+              transaction_id: orderIdParam,
+              value: orderData.total_amount,
+              currency: 'NGN',
+              tax: 0,
+              shipping: 500,
+              items: orderData.items.map((item) => ({
+                item_id: item.product_id.toString(),
+                item_name: item.product_name,
+                price: item.price_at_time,
+                quantity: item.quantity,
+              })),
+            });
+
+            // Meta Pixel purchase
+            metaPixelEvent('Purchase', {
+              value: orderData.total_amount,
+              currency: 'NGN',
+              transaction_id: orderIdParam,
+              content_ids: orderData.items.map((i) => i.product_id.toString()),
+              num_items: orderData.items.reduce((acc, i) => acc + i.quantity, 0),
+            });
+          } catch (trackingError) {
+            console.error('Purchase tracking error:', trackingError);
+          }
         } else {
           setStatus('error');
         }

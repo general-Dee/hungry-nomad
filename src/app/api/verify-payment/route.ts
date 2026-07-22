@@ -31,12 +31,21 @@ export async function POST(request: NextRequest) {
 
     const { data: existingOrder, error: fetchOrderError } = await supabaseAdmin
       .from('orders')
-      .select('total_amount')
+      .select('total_amount, status')
       .eq('id', order_id)
       .single();
 
     if (fetchOrderError || !existingOrder) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    }
+
+    // Idempotency guard: the success page calls this endpoint on every mount
+    // (refresh, back/forward nav, revisiting a bookmarked URL). If this order
+    // was already marked paid by an earlier, legitimate verification, short-
+    // circuit here so we don't re-send confirmation/staff-alert emails or
+    // re-run the update on every reload.
+    if (existingOrder.status === 'paid') {
+      return NextResponse.json({ success: true });
     }
 
     // Paystack's amount is the ground truth for what was actually charged —
@@ -57,7 +66,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update order status
+    // Update order status. The `.eq('status', existingOrder.status)` closes a
+    // TOCTOU gap: if another concurrent request (double network retry, the
+    // success-page effect firing twice, the same link open in two tabs)
+    // already flipped this order to 'paid' between our read above and this
+    // write, the update matches zero rows instead of racing to send
+    // duplicate emails.
     const { data: order, error: updateError } = await supabaseAdmin
       .from('orders')
       .update({
@@ -65,10 +79,23 @@ export async function POST(request: NextRequest) {
         payment_reference: reference,
       })
       .eq('id', order_id)
+      .eq('status', existingOrder.status)
       .select()
       .single();
 
-    if (updateError || !order) {
+    if (!updateError && !order) {
+      // No row matched id+status: another request already marked this order
+      // paid first. Treat it the same as the already-paid short-circuit
+      // above — skip sending emails again.
+      return NextResponse.json({ success: true });
+    }
+
+    if (updateError) {
+      // PGRST116 = "no rows returned" from .single(), which .update().eq(...)
+      // hits when the status condition no longer matches (concurrent update).
+      if (updateError.code === 'PGRST116') {
+        return NextResponse.json({ success: true });
+      }
       console.error('Order update error:', updateError);
       return NextResponse.json(
         { error: 'Failed to update order' },
