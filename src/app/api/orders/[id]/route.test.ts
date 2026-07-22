@@ -44,8 +44,8 @@ const { mockFrom, setOrdersResult, setItemsResult } = vi.hoisted(() => {
   };
 });
 
-vi.mock('@/lib/supabaseClient', () => ({
-  supabase: { from: mockFrom },
+vi.mock('@/lib/supabaseAdmin', () => ({
+  supabaseAdmin: { from: mockFrom },
 }));
 
 // No UPSTASH_REDIS_REST_URL / TOKEN are set in the test env, so the real

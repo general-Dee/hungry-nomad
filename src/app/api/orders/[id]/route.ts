@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { timingSafeEqual } from 'crypto';
-import { supabase } from '@/lib/supabaseClient';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { isValidOrderStatus, validateTransition, OrderStatus } from '@/lib/orderStatus';
 import { orderGetRatelimit, getClientIp } from '@/lib/ratelimit';
 
@@ -35,7 +35,7 @@ export async function GET(
     return NextResponse.json({ error: 'Order not found' }, { status: 404 });
   }
 
-  const { data: order, error: orderError } = await supabase
+  const { data: order, error: orderError } = await supabaseAdmin
     .from('orders')
     .select('*')
     .eq('id', orderId)
@@ -45,7 +45,7 @@ export async function GET(
     return NextResponse.json({ error: 'Order not found' }, { status: 404 });
   }
 
-  const { data: items, error: itemsError } = await supabase
+  const { data: items, error: itemsError } = await supabaseAdmin
     .from('order_items')
     .select(`
       product_id,
@@ -80,9 +80,10 @@ export async function GET(
 // authentication/authorization — it's one static, unrotatable, all-or-nothing
 // credential shared by every caller. Before the staff app relies on this in
 // production, replace it with proper per-user staff auth (e.g. Supabase Auth
-// with a staff role + RLS policy, or a session-based login), and consider
-// moving the write itself behind a service-role key / RLS policy rather than
-// the anon key currently used by `supabase` here.
+// with a staff role + RLS policy, or a session-based login). The write
+// already goes through the service-role client (`supabaseAdmin`, which
+// bypasses RLS) — this PATCH's only gate is the shared-secret check above,
+// not RLS.
 // ---------------------------------------------------------------------------
 export async function PATCH(
   request: NextRequest,
@@ -125,7 +126,7 @@ export async function PATCH(
     );
   }
 
-  const { data: existingOrder, error: fetchError } = await supabase
+  const { data: existingOrder, error: fetchError } = await supabaseAdmin
     .from('orders')
     .select('status')
     .eq('id', orderId)
@@ -143,7 +144,7 @@ export async function PATCH(
     return NextResponse.json({ error: result.error }, { status: 409 });
   }
 
-  const { data: updatedOrder, error: updateError } = await supabase
+  const { data: updatedOrder, error: updateError } = await supabaseAdmin
     .from('orders')
     .update({ status: targetStatus })
     .eq('id', orderId)

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabaseClient';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { orderCreateRatelimit, getClientIp } from '@/lib/ratelimit';
 import { isWithinBusinessHours, BUSINESS_HOURS_LABEL } from '@/lib/businessHours';
 import { computeOrderTotal } from '@/lib/pricing';
@@ -112,7 +113,7 @@ export async function POST(request: NextRequest) {
     const deliveryFee = zone.fee;
     const { total: total_amount } = computeOrderTotal(orderItems, deliveryFee);
 
-    const { data: order, error: orderError } = await supabase
+    const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
       .insert({
         customer_name,
@@ -132,7 +133,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create order' }, { status: 500 });
     }
 
-    const { error: itemsError } = await supabase.from('order_items').insert(
+    const { error: itemsError } = await supabaseAdmin.from('order_items').insert(
       orderItems.map(({ product_id, quantity, price_at_time }) => ({
         order_id: order.id,
         product_id,
@@ -143,7 +144,7 @@ export async function POST(request: NextRequest) {
 
     if (itemsError) {
       console.error('Order items error:', itemsError);
-      await supabase.from('orders').delete().eq('id', order.id);
+      await supabaseAdmin.from('orders').delete().eq('id', order.id);
       return NextResponse.json({ error: 'Failed to create order items' }, { status: 500 });
     }
 

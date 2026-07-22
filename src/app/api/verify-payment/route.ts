@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabaseClient';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { sendOrderConfirmationEmail, sendStaffOrderAlertEmail } from '@/lib/email';
 
 export async function POST(request: NextRequest) {
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data: existingOrder, error: fetchOrderError } = await supabase
+    const { data: existingOrder, error: fetchOrderError } = await supabaseAdmin
       .from('orders')
       .select('total_amount')
       .eq('id', order_id)
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update order status
-    const { data: order, error: updateError } = await supabase
+    const { data: order, error: updateError } = await supabaseAdmin
       .from('orders')
       .update({
         status: 'paid',
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data: items, error: itemsError } = await supabase
+    const { data: items, error: itemsError } = await supabaseAdmin
       .from('order_items')
       .select('product_id, quantity, price_at_time, products ( name )')
       .eq('order_id', order_id);

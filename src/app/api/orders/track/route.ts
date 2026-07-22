@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabaseClient';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { orderTrackRatelimit, getClientIp } from '@/lib/ratelimit';
 
 function normalizePhone(phone: string) {
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data: order, error: orderError } = await supabase
+    const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
       .select('*')
       .eq('id', order_id)
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data: items, error: itemsError } = await supabase
+    const { data: items, error: itemsError } = await supabaseAdmin
       .from('order_items')
       .select('product_id, quantity, price_at_time, products ( name )')
       .eq('order_id', order_id);

@@ -275,14 +275,26 @@ privilege:
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` (subject to whatever Row Level Security
   policies exist on the Supabase project — the intended policy set is
-  defined in `docs/sql/enable-rls.sql` and summarized in §7 below, so don't
-  assume the anon key alone is sufficient for a staff app's write needs,
-  e.g. there is deliberately no `DELETE` policy on `orders`)
+  defined in `docs/sql/enable-rls.sql` and summarized in §7 below. As of this
+  update, the anon key has **zero** access to `orders`/`order_items` — those
+  tables are default-deny for `anon`. A second app's own writes/reads to
+  those two tables must go through its own service-role key or equivalent,
+  not the anon key.)
 - `NEXT_PUBLIC_SITE_URL`
 - `NEXT_PUBLIC_GA_MEASUREMENT_ID`, `NEXT_PUBLIC_META_PIXEL_ID` (only relevant
   if the staff app also wants shared analytics — otherwise skip)
 
 ### Must stay exclusive to this app — do not copy
+- `SUPABASE_SERVICE_ROLE_KEY` — server-only, used exclusively by
+  `src/lib/supabaseAdmin.ts`. This client is imported only from API routes
+  (`src/app/api/orders/route.ts`, `src/app/api/orders/[id]/route.ts`,
+  `src/app/api/verify-payment/route.ts`, `src/app/api/orders/track/route.ts`)
+  for every `orders`/`order_items` read and write; it bypasses Row Level
+  Security entirely, so it must never be prefixed `NEXT_PUBLIC_` and must
+  never be imported from a `'use client'` component or any module that ends
+  up in the browser bundle. A staff app needing elevated/bypass-RLS access
+  must provision and manage its own service-role key — do not reuse this
+  app's.
 - `PAYSTACK_SECRET_KEY` — used server-side only, in
   `src/app/api/verify-payment/route.ts`, to call Paystack's verify endpoint.
   A staff app should not need this unless it independently verifies payments
@@ -305,24 +317,32 @@ privilege:
   would need to initiate customer payments, so treat it as not-applicable
   rather than something to copy.
 
-### Notably absent from this app
-There is **no Supabase service-role key** (`SUPABASE_SERVICE_ROLE_KEY` or
-similar) anywhere in this codebase — `src/lib/supabaseClient.ts` only ever
-constructs a client with the public anon key. This app does all of its
-writes (order creation, payment status updates) through the anon key, which
-means the anon key must be granted exactly the operations the app needs via
-RLS policies — no more, no less. Those policies are now explicitly defined
-in `docs/sql/enable-rls.sql` (see §7 below for a summary); as of 2026-07-22
-that script has been run against the live Supabase project and confirmed
-applied (all four tables show RLS enabled in the dashboard), with the core
-checkout flow (order creation, payment, and the success page's order fetch)
-smoke-tested successfully against it.
-A staff app that needs elevated/bypass-RLS access (e.g. to update
-`orders.status` to `'delivered'` as an authenticated staff action, which the
-anon-key policies in §7 do permit but without any per-user identity or audit
-trail) will need to provision and manage **its own** service-role key or
-proper staff auth — there is nothing to reuse from this app for that
-purpose.
+### Two Supabase clients, split by privilege
+This app now has two Supabase clients, deliberately split by where each is
+allowed to run:
+- `src/lib/supabaseClient.ts` — the public anon-key client. Used both
+  browser-side (client components, RSCs) and, in
+  `src/app/api/orders/route.ts`, for the `products`/`delivery_zones` lookups
+  during order creation (read-only, no PII, safe under the anon key's
+  SELECT-only policies on those two tables).
+- `src/lib/supabaseAdmin.ts` — the service-role client
+  (`SUPABASE_SERVICE_ROLE_KEY`, server-only). Used exclusively by the four
+  API routes that touch `orders`/`order_items` (order creation, payment
+  verification, `/track` lookups, and the staff status-transition endpoint)
+  — see §7 for the full table. It bypasses RLS by design, which is why
+  `orders`/`order_items` are now default-deny for `anon`: the app's own
+  ownership-proof checks (reference match, phone match, staff shared secret
+  — see §4) are what actually gate access to those tables now, not RLS.
+
+Those RLS policies are explicitly defined in `docs/sql/enable-rls.sql` (see
+§7 below for a summary); running that script against a live Supabase project
+is a manual, one-time operation the developer performs from the Supabase
+Dashboard, not something automated by this repo.
+
+A staff app that needs elevated/bypass-RLS access to `orders`/`order_items`
+(e.g. to update `orders.status` to `'delivered'` as an authenticated staff
+action) will need to provision and manage **its own** service-role key or
+proper staff auth — do not reuse this app's `SUPABASE_SERVICE_ROLE_KEY`.
 
 ---
 
@@ -337,44 +357,42 @@ name or pick its own — there's no requirement either way.
 ## 7. Row Level Security Policies
 
 Source: `docs/sql/enable-rls.sql`. This documents the policy set as defined
-in that script. As of 2026-07-22, the script has been run against the live
-Supabase project and confirmed applied — all four tables (`products`,
-`delivery_zones`, `orders`, `order_items`) show RLS enabled in the Supabase
-Dashboard's Authentication → Policies page, and the core checkout flow
-(order creation, payment, and the success page's order fetch) was
-smoke-tested successfully with RLS active. That smoke test covers the
-checkout/payment/success path, not every RLS-gated code path in this
-app (e.g. `/track` and the staff `PATCH /api/orders/[id]` endpoint were not
-part of that pass) — if in doubt for those, check the Supabase Dashboard
-against the table below, or re-run the script (it's safe to re-run the
-`ALTER TABLE ... ENABLE ROW LEVEL SECURITY` lines; see the script's own
-header comment for notes on re-running `CREATE POLICY` statements).
+in that script.
 
-This app has no user-login system, so none of these policies encode a
-per-row auth condition — every granted operation uses `USING (true)` /
-`WITH CHECK (true)`. RLS's job here is **default-deny for anything not
-listed** (in particular, no `DELETE` policy exists on any table, and no
-write policy exists on `products` or `delivery_zones`), while the app's own
-business logic — server-derived pricing (§2), Paystack amount verification
-(§2), the order-status state machine (§4), rate limiting, and the
-reference-match gate on `GET /api/orders/[id]` (§4) — remains the real
-access-control layer for *how* those allowed operations are used.
+RLS was originally found DISABLED on `orders` in the live project — with RLS
+disabled, anyone holding the public anon key (already shipped in the browser
+bundle) could issue arbitrary SELECT/INSERT/UPDATE/DELETE directly against
+Supabase's REST API on any table, bypassing every app-layer protection this
+codebase relies on. The first fix for that (RLS enabled, anon granted
+`USING (true)`/`WITH CHECK (true)` policies on `orders`/`order_items`) closed
+the "RLS disabled entirely" hole but still left the anon key able to insert,
+read, and update every row in `orders`/`order_items` directly — enough to
+tamper with `total_amount`/`status` or read every customer's PII via a
+direct REST call, entirely bypassing the app's API routes.
+
+**Current model:** `orders` and `order_items` are now **default-deny for
+`anon`** — zero policies granted, of any kind. All access to those two
+tables goes through the server-only service-role client
+(`src/lib/supabaseAdmin.ts`, see §5), which bypasses RLS entirely and is
+never shipped to the browser. `products` and `delivery_zones` still need
+browser-side reads (menu display, checkout zone lookup) and keep their
+anon SELECT-only policies, unchanged.
 
 | table | `anon` operations granted | notes |
 |---|---|---|
 | `products` | `SELECT` | No write policy — writes must stay closed, or anyone could set `price` directly and bypass all server-side pricing logic. |
 | `delivery_zones` | `SELECT` | No write policy — same reasoning, for delivery fees. |
-| `orders` | `INSERT`, `SELECT`, `UPDATE` | **No `DELETE` policy, deliberately.** `src/app/api/orders/route.ts` has a best-effort rollback `DELETE FROM orders WHERE id = ...` for a rare partial-failure case during order creation; with no `DELETE` policy that rollback silently no-ops. This is an accepted, harmless tradeoff, not a bug. |
-| `order_items` | `INSERT`, `SELECT` | No `UPDATE`/`DELETE` policy — order items are a point-in-time price snapshot (`price_at_time`) that no app flow ever modifies or removes after creation. |
+| `orders` | *(none)* | Default-deny. All reads/writes go through `supabaseAdmin` (service-role key, server-only) from the four API routes listed in §5 — the anon key cannot touch this table via direct REST calls at all. |
+| `order_items` | *(none)* | Default-deny. Same as `orders` — all access goes through `supabaseAdmin`. |
 
-Because every policy is `USING (true)` / `WITH CHECK (true)`, RLS on this
-project is **not** a substitute for the ownership-proof checks described
-elsewhere in this doc (the `reference` query param on `GET /api/orders/[id]`,
-the phone-number match on `POST /api/orders/track`, the `x-staff-secret`
-header on `PATCH /api/orders/[id]`) — those remain the only thing standing
-between the anon key and reading/writing any given row. RLS's contribution
-here is narrower: it stops the anon key from doing things the app itself
-never does (deleting rows, writing to `products`/`delivery_zones`), which
-closes the gap where RLS being disabled entirely would let anyone with the
-anon key bypass every app-layer protection via direct REST calls to
-Supabase.
+Because the anon key now has zero access to `orders`/`order_items`, RLS is a
+real, enforced boundary against direct-REST-call tampering/PII reads on
+those two tables — not just a backstop behind app-layer logic. The app's own
+ownership-proof checks (the `reference` query param on
+`GET /api/orders/[id]`, the phone-number match on `POST /api/orders/track`,
+the `x-staff-secret` header on `PATCH /api/orders/[id]` — see §4) still
+matter: they're what gates *which* rows a legitimate API-route call can
+read/write, since the service-role client itself has no row-level
+restriction once a request reaches it. Server-derived pricing (§2) and
+Paystack amount verification (§2) remain the source of truth for what
+`total_amount`/`status` are allowed to be, independent of RLS.
