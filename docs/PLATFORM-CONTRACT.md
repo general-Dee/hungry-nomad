@@ -312,9 +312,11 @@ constructs a client with the public anon key. This app does all of its
 writes (order creation, payment status updates) through the anon key, which
 means the anon key must be granted exactly the operations the app needs via
 RLS policies — no more, no less. Those policies are now explicitly defined
-in `docs/sql/enable-rls.sql` (see §7 below for a summary); this doc cannot
-independently confirm that script has actually been run against the live
-database, only that it is the intended/prescribed policy set going forward.
+in `docs/sql/enable-rls.sql` (see §7 below for a summary); as of 2026-07-22
+that script has been run against the live Supabase project and confirmed
+applied (all four tables show RLS enabled in the dashboard), with the core
+checkout flow (order creation, payment, and the success page's order fetch)
+smoke-tested successfully against it.
 A staff app that needs elevated/bypass-RLS access (e.g. to update
 `orders.status` to `'delivered'` as an authenticated staff action, which the
 anon-key policies in §7 do permit but without any per-user identity or audit
@@ -334,14 +336,19 @@ name or pick its own — there's no requirement either way.
 
 ## 7. Row Level Security Policies
 
-Source: `docs/sql/enable-rls.sql`. This documents the **intended** policy
-set as defined in that script — this doc cannot independently confirm the
-script has actually been run against the live Supabase project, only that
-it is the prescribed/intended state going forward. If in doubt, check the
-Supabase Dashboard's Authentication → Policies page against the table below,
-or re-run the script (it's safe to re-run the `ALTER TABLE ... ENABLE ROW
-LEVEL SECURITY` lines; see the script's own header comment for notes on
-re-running `CREATE POLICY` statements).
+Source: `docs/sql/enable-rls.sql`. This documents the policy set as defined
+in that script. As of 2026-07-22, the script has been run against the live
+Supabase project and confirmed applied — all four tables (`products`,
+`delivery_zones`, `orders`, `order_items`) show RLS enabled in the Supabase
+Dashboard's Authentication → Policies page, and the core checkout flow
+(order creation, payment, and the success page's order fetch) was
+smoke-tested successfully with RLS active. That smoke test covers the
+checkout/payment/success path, not every RLS-gated code path in this
+app (e.g. `/track` and the staff `PATCH /api/orders/[id]` endpoint were not
+part of that pass) — if in doubt for those, check the Supabase Dashboard
+against the table below, or re-run the script (it's safe to re-run the
+`ALTER TABLE ... ENABLE ROW LEVEL SECURITY` lines; see the script's own
+header comment for notes on re-running `CREATE POLICY` statements).
 
 This app has no user-login system, so none of these policies encode a
 per-row auth condition — every granted operation uses `USING (true)` /
