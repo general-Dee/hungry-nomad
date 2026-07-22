@@ -8,7 +8,7 @@ and business rules that **any second app reading/writing the same data must resp
 If this doc and the code ever disagree, the code wins; update this doc rather than
 trusting it blindly.
 
-Last verified: 2026-07-21, against `hungry-nomad` on branch `main`.
+Last verified: 2026-07-22, against `hungry-nomad` on branch `main`.
 
 ---
 
@@ -274,9 +274,10 @@ public tracking IDs — safe to reuse as-is since they carry no elevated
 privilege:
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` (subject to whatever Row Level Security
-  policies exist on the Supabase project — this repo's code doesn't define
-  or verify RLS policies, so don't assume the anon key alone is sufficient
-  for a staff app's write needs)
+  policies exist on the Supabase project — the intended policy set is
+  defined in `docs/sql/enable-rls.sql` and summarized in §7 below, so don't
+  assume the anon key alone is sufficient for a staff app's write needs,
+  e.g. there is deliberately no `DELETE` policy on `orders`)
 - `NEXT_PUBLIC_SITE_URL`
 - `NEXT_PUBLIC_GA_MEASUREMENT_ID`, `NEXT_PUBLIC_META_PIXEL_ID` (only relevant
   if the staff app also wants shared analytics — otherwise skip)
@@ -308,13 +309,18 @@ privilege:
 There is **no Supabase service-role key** (`SUPABASE_SERVICE_ROLE_KEY` or
 similar) anywhere in this codebase — `src/lib/supabaseClient.ts` only ever
 constructs a client with the public anon key. This app does all of its
-writes (order creation, payment status updates) through the anon key,
-meaning either RLS is permissive enough to allow it or RLS is not enforced
-on these tables — not verifiable from this repo alone. A staff app that
-needs elevated/bypass-RLS access (e.g. to update `orders.status` to
-`'delivered'` as an authenticated staff action) will need to provision and
-manage **its own** service-role key — there is nothing to reuse from this
-app for that purpose.
+writes (order creation, payment status updates) through the anon key, which
+means the anon key must be granted exactly the operations the app needs via
+RLS policies — no more, no less. Those policies are now explicitly defined
+in `docs/sql/enable-rls.sql` (see §7 below for a summary); this doc cannot
+independently confirm that script has actually been run against the live
+database, only that it is the intended/prescribed policy set going forward.
+A staff app that needs elevated/bypass-RLS access (e.g. to update
+`orders.status` to `'delivered'` as an authenticated staff action, which the
+anon-key policies in §7 do permit but without any per-user identity or audit
+trail) will need to provision and manage **its own** service-role key or
+proper staff auth — there is nothing to reuse from this app for that
+purpose.
 
 ---
 
@@ -323,3 +329,45 @@ app for that purpose.
 This app's manager agent is named **Nomad** (`CLAUDE.md`, `## NAME`), purely
 as this repo's own convention. A second app's manager agent can reuse the
 name or pick its own — there's no requirement either way.
+
+---
+
+## 7. Row Level Security Policies
+
+Source: `docs/sql/enable-rls.sql`. This documents the **intended** policy
+set as defined in that script — this doc cannot independently confirm the
+script has actually been run against the live Supabase project, only that
+it is the prescribed/intended state going forward. If in doubt, check the
+Supabase Dashboard's Authentication → Policies page against the table below,
+or re-run the script (it's safe to re-run the `ALTER TABLE ... ENABLE ROW
+LEVEL SECURITY` lines; see the script's own header comment for notes on
+re-running `CREATE POLICY` statements).
+
+This app has no user-login system, so none of these policies encode a
+per-row auth condition — every granted operation uses `USING (true)` /
+`WITH CHECK (true)`. RLS's job here is **default-deny for anything not
+listed** (in particular, no `DELETE` policy exists on any table, and no
+write policy exists on `products` or `delivery_zones`), while the app's own
+business logic — server-derived pricing (§2), Paystack amount verification
+(§2), the order-status state machine (§4), rate limiting, and the
+reference-match gate on `GET /api/orders/[id]` (§4) — remains the real
+access-control layer for *how* those allowed operations are used.
+
+| table | `anon` operations granted | notes |
+|---|---|---|
+| `products` | `SELECT` | No write policy — writes must stay closed, or anyone could set `price` directly and bypass all server-side pricing logic. |
+| `delivery_zones` | `SELECT` | No write policy — same reasoning, for delivery fees. |
+| `orders` | `INSERT`, `SELECT`, `UPDATE` | **No `DELETE` policy, deliberately.** `src/app/api/orders/route.ts` has a best-effort rollback `DELETE FROM orders WHERE id = ...` for a rare partial-failure case during order creation; with no `DELETE` policy that rollback silently no-ops. This is an accepted, harmless tradeoff, not a bug. |
+| `order_items` | `INSERT`, `SELECT` | No `UPDATE`/`DELETE` policy — order items are a point-in-time price snapshot (`price_at_time`) that no app flow ever modifies or removes after creation. |
+
+Because every policy is `USING (true)` / `WITH CHECK (true)`, RLS on this
+project is **not** a substitute for the ownership-proof checks described
+elsewhere in this doc (the `reference` query param on `GET /api/orders/[id]`,
+the phone-number match on `POST /api/orders/track`, the `x-staff-secret`
+header on `PATCH /api/orders/[id]`) — those remain the only thing standing
+between the anon key and reading/writing any given row. RLS's contribution
+here is narrower: it stops the anon key from doing things the app itself
+never does (deleting rows, writing to `products`/`delivery_zones`), which
+closes the gap where RLS being disabled entirely would let anyone with the
+anon key bypass every app-layer protection via direct REST calls to
+Supabase.
