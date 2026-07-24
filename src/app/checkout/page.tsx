@@ -35,7 +35,7 @@ declare global {
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cart, isLoaded, getCartTotal, clearCart } = useCart();
+  const { cart, isLoaded, getCartTotal } = useCart();
   const subtotal = getCartTotal();
   const [deliveryFee, setDeliveryFee] = useState(0);
   const takeawayFee = TAKEAWAY_FEE;
@@ -188,7 +188,6 @@ export default function CheckoutPage() {
       },
       callback: (response: { reference: string }) => {
         router.push(`/success?reference=${response.reference}&order_id=${order.id}`);
-        clearCart();
       },
       onClose: () => router.push('/cancel'),
     });

@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useCart } from '@/context/CartContext';
 import { event, metaPixelEvent } from '@/lib/tracking';
 
 type OrderItem = {
@@ -21,6 +22,7 @@ type OrderWithItems = {
 function SuccessContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { clearCart } = useCart();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [orderId, setOrderId] = useState<string | null>(null);
 
@@ -45,6 +47,7 @@ function SuccessContent() {
         if (data.success) {
           setStatus('success');
           setOrderId(orderIdParam);
+          clearCart();
 
           // Analytics tracking is best-effort and must never downgrade an
           // already-confirmed success status — a failed/slow/malformed
@@ -89,6 +92,10 @@ function SuccessContent() {
       }
     }
     verifyPayment();
+    // clearCart intentionally omitted: it's not memoized in CartContext, so
+    // including it would re-run verifyPayment on unrelated cart-context
+    // re-renders. This effect must only re-run when reference/order_id change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reference, orderIdParam, router]);
 
   if (status === 'loading') {
@@ -104,9 +111,22 @@ function SuccessContent() {
     return (
       <div className="container mx-auto px-4 py-16 text-center">
         <div className="text-red-500 text-6xl mb-4">✗</div>
-        <h1 className="text-2xl font-bold mb-4">Payment Verification Failed</h1>
-        <p className="text-gray-600 mb-8">Please contact support.</p>
-        <Link href="/" className="btn-primary inline-block">Return Home</Link>
+        <h1 className="text-2xl font-bold mb-4">We&apos;re confirming your payment</h1>
+        {orderIdParam && (
+          <p className="text-gray-600 mb-1">Order ID: <strong>{orderIdParam}</strong></p>
+        )}
+        <p className="text-gray-600 mb-8">
+          If you were charged, your order is on its way. You can track its status below, or
+          contact support with your order ID if anything looks wrong.
+        </p>
+        <div className="space-x-4">
+          <Link href="/" className="btn-primary inline-block">Return Home</Link>
+        </div>
+        {orderIdParam && (
+          <Link href={`/track?order_id=${orderIdParam}`} className="block mt-6 text-sm text-neutral-500 hover:text-amber-600 transition">
+            Track this order
+          </Link>
+        )}
       </div>
     );
   }
