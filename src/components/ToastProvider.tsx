@@ -16,6 +16,7 @@ export const useToast = () => useContext(ToastContext);
 export default function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const timeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const idCounterRef = useRef(0);
 
   // Clear any pending auto-dismiss timers on unmount so they don't fire
   // (and call setState) after the provider is gone.
@@ -28,7 +29,11 @@ export default function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addToast = (message: string, type: 'success' | 'error') => {
-    const id = Date.now().toString();
+    // Date.now() alone can collide across fast successive calls (e.g. rapid
+    // addToCart clicks within the same millisecond); pair it with an
+    // incrementing counter so every toast gets a unique id.
+    idCounterRef.current += 1;
+    const id = `${Date.now()}-${idCounterRef.current}`;
     setToasts((prev) => [...prev, { id, message, type }]);
     const timeoutId = setTimeout(() => {
       timeoutsRef.current.delete(id);

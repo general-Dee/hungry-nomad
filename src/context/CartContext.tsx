@@ -52,7 +52,10 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
     case 'CLEAR_CART':
       return [];
     case 'HYDRATE':
-      return action.payload;
+      return action.payload.map((item) => ({
+        ...item,
+        quantity: Math.min(item.quantity, MAX_ITEM_QUANTITY),
+      }));
     default:
       return state;
   }

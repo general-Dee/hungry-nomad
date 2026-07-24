@@ -134,6 +134,13 @@ describe('CartContext', () => {
     expect(result.current.cart).toEqual([{ ...product(), quantity: 7 }]);
   });
 
+  it('clamps quantities above MAX_ITEM_QUANTITY when hydrating from localStorage', async () => {
+    localStorage.setItem('cart', JSON.stringify([{ ...product(), quantity: MAX_ITEM_QUANTITY + 100 }]));
+    const { result } = renderHook(() => useCart(), { wrapper });
+    await act(async () => {});
+    expect(result.current.cart[0].quantity).toBe(MAX_ITEM_QUANTITY);
+  });
+
   it('ignores corrupt localStorage content and starts with an empty cart', async () => {
     localStorage.setItem('cart', '{not valid json');
     const { result } = renderHook(() => useCart(), { wrapper });

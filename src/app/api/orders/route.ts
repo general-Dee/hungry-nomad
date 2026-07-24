@@ -38,7 +38,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const body = (await request.json()) as OrderRequestBody;
+    let body: OrderRequestBody;
+    try {
+      body = (await request.json()) as OrderRequestBody;
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
     const { customer_name, customer_email, customer_phone, customer_address, delivery_lga, items } = body;
 
     if (
@@ -68,6 +73,22 @@ export async function POST(request: NextRequest) {
         (item) => !item.product_id || !item.quantity || item.quantity <= 0 || item.quantity > MAX_ITEM_QUANTITY
       )
     ) {
+      return NextResponse.json(
+        { error: `Each item must have a valid quantity between 1 and ${MAX_ITEM_QUANTITY}` },
+        { status: 400 }
+      );
+    }
+
+    // A single product can legitimately appear as more than one entry in
+    // `items` (the client shouldn't rely on this, but nothing stops it), so
+    // the per-entry check above isn't enough on its own — sum quantities by
+    // product_id across the whole array and cap the total, otherwise the
+    // per-item cap can be bypassed by splitting one product across entries.
+    const quantityByProduct = new Map<number, number>();
+    for (const item of items) {
+      quantityByProduct.set(item.product_id, (quantityByProduct.get(item.product_id) || 0) + item.quantity);
+    }
+    if ([...quantityByProduct.values()].some((qty) => qty > MAX_ITEM_QUANTITY)) {
       return NextResponse.json(
         { error: `Each item must have a valid quantity between 1 and ${MAX_ITEM_QUANTITY}` },
         { status: 400 }
