@@ -8,7 +8,7 @@ and business rules that **any second app reading/writing the same data must resp
 If this doc and the code ever disagree, the code wins; update this doc rather than
 trusting it blindly.
 
-Last verified: 2026-07-22, against `hungry-nomad` on branch `main`.
+Last verified: 2026-07-23, against `hungry-nomad` on branch `main`.
 
 ---
 
@@ -242,24 +242,40 @@ status; returns `409` with an explanatory message if the transition isn't
 allowed, `404` if the order doesn't exist, `200` with the updated order on
 success.
 
-**Auth is a provisional stopgap, not real auth.** There is no staff-auth
-system in this app (by design — that's the future staff app's job). This
-endpoint currently requires a single shared secret sent as the
-`x-staff-secret` header, checked against the `STAFF_API_SECRET` env var
-(server-only; not currently present in `.env.local` — must be added before
-this endpoint will work, and the endpoint fails closed with `503` if unset).
-This is one static, unrotatable, all-or-nothing credential — not per-user
-auth, no audit trail of *who* transitioned an order. **Before a real staff
-app relies on this, it needs proper staff authentication/authorization**
-(e.g. Supabase Auth with a staff role + RLS policy, or session-based login)
-in place of `STAFF_API_SECRET`, and ideally the underlying Supabase write
-should move off the anon key (see §5's note on the absent service-role key).
+**Auth: real per-user Supabase Auth, gated on a staff role.** The caller
+must present a valid Supabase Auth access token as
+`Authorization: Bearer <token>`. `src/lib/staffAuth.ts` validates the token
+via `supabaseAdmin.auth.getUser(token)` and requires the resulting user's
+`app_metadata.role` to equal `'staff'` — `app_metadata` (unlike
+`user_metadata`) is only writable by a service-role/admin client, so a user
+can never self-elevate to staff from the browser. Unauthenticated or
+invalid/expired tokens get `401`; an authenticated user without the staff
+role gets `403`. This replaces the old `x-staff-secret` /
+`STAFF_API_SECRET` shared-secret stopgap — auth is now per-user (each caller
+authenticates as themselves, not as one shared credential) and every
+successful transition is logged with the acting staff user's id/email
+(`console.log`, not persisted on the `orders` row — no schema change was
+made for this).
 
-This app's own code does not call `PATCH /api/orders/[id]` anywhere yet —
-it exists purely as the capability a future staff app is expected to call.
-`'delivered'`/`'failed'` still have no *automatic* trigger in this codebase
-(e.g. no refund flow sets `'failed'` on a `paid` order); a staff app or
-person is expected to call this endpoint deliberately.
+This app now ships a minimal staff-facing UI to obtain and use that session:
+`/staff/login` (`src/app/staff/login/page.tsx`) is an email/password sign-in
+form against Supabase Auth (`supabase.auth.signInWithPassword`), and
+`/staff` (`src/app/staff/page.tsx`) is a bare-bones authenticated page — not
+a full order-management dashboard — with a form that calls this PATCH
+endpoint directly using the signed-in user's access token. Staff accounts
+are regular Supabase Auth users; there is no self-serve signup, and being
+signed in does **not** imply staff access — the app owner must separately
+grant `app_metadata.role = 'staff'` to a user's account after they exist
+(see `docs/sql/set-staff-role.sql` for the SQL, or the equivalent
+`supabaseAdmin.auth.admin.updateUserById` call), which is what actually
+gates the PATCH endpoint.
+
+Aside from `/staff` and `/staff/login`, this app's own code does not call
+`PATCH /api/orders/[id]` anywhere else — it otherwise exists purely as the
+capability a fuller future staff app is expected to call. `'delivered'`/
+`'failed'` still have no *automatic* trigger in this codebase (e.g. no
+refund flow sets `'failed'` on a `paid` order); a staff app or person is
+expected to call this endpoint deliberately.
 
 ---
 
@@ -331,8 +347,9 @@ allowed to run:
   verification, `/track` lookups, and the staff status-transition endpoint)
   — see §7 for the full table. It bypasses RLS by design, which is why
   `orders`/`order_items` are now default-deny for `anon`: the app's own
-  ownership-proof checks (reference match, phone match, staff shared secret
-  — see §4) are what actually gate access to those tables now, not RLS.
+  ownership-proof checks (reference match, phone match, staff-role Supabase
+  Auth check — see §4) are what actually gate access to those tables now,
+  not RLS.
 
 Those RLS policies are explicitly defined in `docs/sql/enable-rls.sql` (see
 §7 below for a summary); running that script against a live Supabase project
@@ -390,8 +407,8 @@ real, enforced boundary against direct-REST-call tampering/PII reads on
 those two tables — not just a backstop behind app-layer logic. The app's own
 ownership-proof checks (the `reference` query param on
 `GET /api/orders/[id]`, the phone-number match on `POST /api/orders/track`,
-the `x-staff-secret` header on `PATCH /api/orders/[id]` — see §4) still
-matter: they're what gates *which* rows a legitimate API-route call can
+the staff-role Supabase Auth check on `PATCH /api/orders/[id]` — see §4)
+still matter: they're what gates *which* rows a legitimate API-route call can
 read/write, since the service-role client itself has no row-level
 restriction once a request reaches it. Server-derived pricing (§2) and
 Paystack amount verification (§2) remain the source of truth for what

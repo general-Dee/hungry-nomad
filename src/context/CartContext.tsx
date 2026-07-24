@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useReducer, useEffect, useState, ReactNode } from 'react';
 import { Product, CartItem } from '@/types';
+import { MAX_ITEM_QUANTITY } from '@/lib/pricing';
 
 type CartState = CartItem[];
 
@@ -21,6 +22,7 @@ const CartContext = createContext<{
   clearCart: () => void;
   getCartTotal: () => number;
   getCartCount: () => number;
+  maxItemQuantity: number;
 } | null>(null);
 
 const cartReducer = (state: CartState, action: CartAction): CartState => {
@@ -29,7 +31,9 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
       const existing = state.find((item) => item.id === action.payload.id);
       if (existing) {
         return state.map((item) =>
-          item.id === action.payload.id ? { ...item, quantity: item.quantity + 1 } : item
+          item.id === action.payload.id
+            ? { ...item, quantity: Math.min(item.quantity + 1, MAX_ITEM_QUANTITY) }
+            : item
         );
       }
       return [...state, { ...action.payload, quantity: 1 }];
@@ -41,7 +45,9 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         return state.filter((item) => item.id !== action.payload.id);
       }
       return state.map((item) =>
-        item.id === action.payload.id ? { ...item, quantity: action.payload.quantity } : item
+        item.id === action.payload.id
+          ? { ...item, quantity: Math.min(action.payload.quantity, MAX_ITEM_QUANTITY) }
+          : item
       );
     case 'CLEAR_CART':
       return [];
@@ -98,6 +104,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         clearCart,
         getCartTotal,
         getCartCount,
+        maxItemQuantity: MAX_ITEM_QUANTITY,
       }}
     >
       {children}

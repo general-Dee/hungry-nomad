@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { TAKEAWAY_FEE, requiresTakeawayFee } from '@/lib/pricing';
 
 export default function CartPage() {
-  const { cart, isLoaded, updateQuantity, removeFromCart, getCartTotal, clearCart } = useCart();
+  const { cart, isLoaded, updateQuantity, removeFromCart, getCartTotal, clearCart, maxItemQuantity } = useCart();
   const total = getCartTotal();
   const takeawayFee = requiresTakeawayFee(cart) ? TAKEAWAY_FEE : 0;
 
@@ -49,29 +49,35 @@ export default function CartPage() {
                   <h3 className="font-bold text-lg">{item.name}</h3>
                   <p className="text-amber-600 font-medium">₦{item.price.toLocaleString()}</p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                    aria-label={`Decrease quantity of ${item.name}`}
-                    className="w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200"
-                  >
-                    -
-                  </button>
-                  <span className="w-8 text-center font-medium">{item.quantity}</span>
-                  <button
-                    onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                    aria-label={`Increase quantity of ${item.name}`}
-                    className="w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200"
-                  >
-                    +
-                  </button>
-                  <button
-                    onClick={() => removeFromCart(item.id)}
-                    aria-label={`Remove ${item.name} from cart`}
-                    className="text-red-500 hover:text-red-700 ml-2 text-sm"
-                  >
-                    Remove
-                  </button>
+                <div className="flex flex-col items-center sm:items-end gap-1">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                      aria-label={`Decrease quantity of ${item.name}`}
+                      className="w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200"
+                    >
+                      -
+                    </button>
+                    <span className="w-8 text-center font-medium">{item.quantity}</span>
+                    <button
+                      onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                      aria-label={`Increase quantity of ${item.name}`}
+                      disabled={item.quantity >= maxItemQuantity}
+                      className="w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-neutral-100"
+                    >
+                      +
+                    </button>
+                    <button
+                      onClick={() => removeFromCart(item.id)}
+                      aria-label={`Remove ${item.name} from cart`}
+                      className="text-red-500 hover:text-red-700 ml-2 text-sm"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  {item.quantity >= maxItemQuantity && (
+                    <p className="text-xs text-amber-600">Max {maxItemQuantity} per item</p>
+                  )}
                 </div>
                 <div className="font-bold min-w-[80px] text-right">₦{(item.price * item.quantity).toLocaleString()}</div>
               </motion.div>

@@ -2,6 +2,11 @@ import { ProductCategory } from '@/types';
 
 export const TAKEAWAY_FEE = 300;
 
+// Max quantity allowed per cart item. Enforced server-side in
+// src/app/api/orders/route.ts and mirrored here so the cart UI can stop
+// users from exceeding it before they ever reach checkout.
+export const MAX_ITEM_QUANTITY = 50;
+
 const TAKEAWAY_CATEGORIES: ProductCategory[] = ['regular', 'chinese'];
 
 export function requiresTakeawayFee(items: { category: ProductCategory }[]): boolean {

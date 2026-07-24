@@ -10,7 +10,7 @@ import { TAKEAWAY_FEE, requiresTakeawayFee } from '@/lib/pricing';
 
 export default function CartDrawer() {
   const { isOpen, closeDrawer } = useCartDrawer();
-  const { cart, updateQuantity, removeFromCart, getCartTotal } = useCart();
+  const { cart, updateQuantity, removeFromCart, getCartTotal, maxItemQuantity } = useCart();
   const total = getCartTotal();
   const takeawayFee = requiresTakeawayFee(cart) ? TAKEAWAY_FEE : 0;
 
@@ -89,7 +89,8 @@ export default function CartDrawer() {
                           <button
                             onClick={() => updateQuantity(item.id, item.quantity + 1)}
                             aria-label={`Increase quantity of ${item.name}`}
-                            className="w-7 h-7 rounded-full bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center text-sm font-bold"
+                            disabled={item.quantity >= maxItemQuantity}
+                            className="w-7 h-7 rounded-full bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center text-sm font-bold disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-neutral-100"
                           >
                             +
                           </button>
@@ -100,6 +101,9 @@ export default function CartDrawer() {
                             Remove
                           </button>
                         </div>
+                        {item.quantity >= maxItemQuantity && (
+                          <p className="text-xs text-amber-600 mt-1">Max {maxItemQuantity} per item</p>
+                        )}
                       </div>
                       <div className="font-bold text-sm">₦{(item.price * item.quantity).toLocaleString()}</div>
                     </div>

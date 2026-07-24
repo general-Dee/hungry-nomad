@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 
 type Toast = {
@@ -15,13 +15,26 @@ export const useToast = () => useContext(ToastContext);
 
 export default function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const timeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  // Clear any pending auto-dismiss timers on unmount so they don't fire
+  // (and call setState) after the provider is gone.
+  useEffect(() => {
+    const timeouts = timeoutsRef.current;
+    return () => {
+      timeouts.forEach((timeoutId) => clearTimeout(timeoutId));
+      timeouts.clear();
+    };
+  }, []);
 
   const addToast = (message: string, type: 'success' | 'error') => {
     const id = Date.now().toString();
     setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
+      timeoutsRef.current.delete(id);
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 3000);
+    timeoutsRef.current.set(id, timeoutId);
   };
 
   return (

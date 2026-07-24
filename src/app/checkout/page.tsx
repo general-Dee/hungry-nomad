@@ -7,7 +7,8 @@ import { supabase } from '@/lib/supabaseClient';
 import { event, metaPixelEvent } from '@/lib/tracking';
 import { TAKEAWAY_FEE, requiresTakeawayFee } from '@/lib/pricing';
 import { isWithinBusinessHours, BUSINESS_HOURS_LABEL } from '@/lib/businessHours';
-import { ChevronLeftIcon, MapPinIcon, ShoppingCartIcon } from '@heroicons/react/24/outline';
+import { Order } from '@/types';
+import { ChevronLeftIcon, MapPinIcon, ShoppingCartIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 
 interface DeliveryZone {
@@ -55,6 +56,18 @@ export default function CheckoutPage() {
   const [error, setError] = useState('');
   const [paystackReady, setPaystackReady] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
+  // Set when the server-computed total (returned by POST /api/orders, the
+  // authoritative source of what will actually be charged) differs from the
+  // total we displayed to the user while they were filling out the form —
+  // e.g. a menu item's price changed between page load and submit. We hold
+  // off launching Paystack until the user explicitly confirms the new
+  // amount; nothing here changes what gets charged, it only gates whether
+  // we proceed to charge it.
+  const [priceConfirmation, setPriceConfirmation] = useState<{
+    order: Order;
+    previousTotal: number;
+    newTotal: number;
+  } | null>(null);
 
   // Check business hours on mount and keep it current while the page is open
   useEffect(() => {
@@ -131,7 +144,7 @@ export default function CheckoutPage() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const createOrder = async () => {
+  const createOrder = async (): Promise<Order> => {
     const orderData = {
       customer_name: formData.customer_name,
       customer_email: formData.customer_email,
@@ -154,6 +167,54 @@ export default function CheckoutPage() {
     }
     const { order } = await response.json();
     return order;
+  };
+
+  // Launches the Paystack popup for an already-created order, charging
+  // exactly order.total_amount (the server-computed, authoritative figure).
+  // This is only ever called once the displayed total is known to match the
+  // server's, either because they agreed from the start or because the user
+  // explicitly confirmed the updated amount.
+  const launchPaystack = (order: Order) => {
+    const handler = window.PaystackPop.setup({
+      key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY!,
+      email: formData.customer_email,
+      amount: order.total_amount * 100,
+      currency: 'NGN',
+      metadata: {
+        custom_fields: [
+          { display_name: 'Order ID', variable_name: 'order_id', value: order.id },
+          { display_name: 'Customer Name', variable_name: 'customer_name', value: formData.customer_name },
+        ],
+      },
+      callback: (response: { reference: string }) => {
+        router.push(`/success?reference=${response.reference}&order_id=${order.id}`);
+        clearCart();
+      },
+      onClose: () => router.push('/cancel'),
+    });
+    handler.openIframe();
+  };
+
+  const handleConfirmUpdatedPrice = () => {
+    if (!priceConfirmation) return;
+    const { order, newTotal } = priceConfirmation;
+    setTotalAmount(newTotal);
+    setPriceConfirmation(null);
+    try {
+      launchPaystack(order);
+    } catch (err: unknown) {
+      console.error('Payment error:', err);
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    }
+  };
+
+  const handleCancelUpdatedPrice = () => {
+    // The order created for this attempt is left as-is (status "pending")
+    // and never gets charged — same outcome as closing the Paystack popup
+    // without paying. The user's cart and form data are untouched so they
+    // can review the updated total and try again if they want to.
+    setPriceConfirmation(null);
+    setLoading(false);
   };
 
   const handlePayment = async () => {
@@ -202,24 +263,19 @@ export default function CheckoutPage() {
 
     try {
       const order = await createOrder();
-      const handler = window.PaystackPop.setup({
-        key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY!,
-        email: formData.customer_email,
-        amount: order.total_amount * 100,
-        currency: 'NGN',
-        metadata: {
-          custom_fields: [
-            { display_name: 'Order ID', variable_name: 'order_id', value: order.id },
-            { display_name: 'Customer Name', variable_name: 'customer_name', value: formData.customer_name },
-          ],
-        },
-        callback: (response: { reference: string }) => {
-          router.push(`/success?reference=${response.reference}&order_id=${order.id}`);
-          clearCart();
-        },
-        onClose: () => router.push('/cancel'),
-      });
-      handler.openIframe();
+
+      // order.total_amount is computed server-side from current DB prices —
+      // it's the true, authoritative figure that Paystack will actually
+      // charge. totalAmount is what we displayed to the user while they
+      // filled out the form. If a menu item's price (or the delivery/
+      // takeaway fee) changed in between, these can diverge; don't charge
+      // the new amount without the user explicitly seeing and confirming it.
+      if (order.total_amount !== totalAmount) {
+        setPriceConfirmation({ order, previousTotal: totalAmount, newTotal: order.total_amount });
+        return;
+      }
+
+      launchPaystack(order);
     } catch (err: unknown) {
       console.error('Payment error:', err);
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -389,7 +445,7 @@ export default function CheckoutPage() {
 
               <button
                 onClick={handlePayment}
-                disabled={loading || !paystackReady || loadingZones || !selectedZoneId || !isOpen}
+                disabled={loading || !!priceConfirmation || !paystackReady || loadingZones || !selectedZoneId || !isOpen}
                 className="btn-primary mt-6 w-full py-3 disabled:opacity-50"
               >
                 {!isOpen ? "We're closed right now" : loading ? 'Processing...' : !paystackReady ? 'Loading payment...' : 'Proceed to payment'}
@@ -401,6 +457,55 @@ export default function CheckoutPage() {
           </div>
         </div>
       </div>
+
+      {priceConfirmation && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="price-update-heading"
+        >
+          <div className="card-glass w-full max-w-sm p-6">
+            <div className="flex items-start gap-3">
+              <ExclamationTriangleIcon className="h-6 w-6 flex-shrink-0 text-amber-600" />
+              <div>
+                <h2 id="price-update-heading" className="text-lg font-semibold text-gray-800">
+                  Price updated
+                </h2>
+                <p className="mt-1 text-sm text-gray-600">
+                  One or more prices changed since you loaded this page. Please confirm before we charge your card.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-1 rounded-lg bg-gray-50 p-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Was</span>
+                <span className="text-gray-500 line-through">₦{priceConfirmation.previousTotal.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between font-semibold text-gray-800">
+                <span>Now</span>
+                <span>₦{priceConfirmation.newTotal.toLocaleString()}</span>
+              </div>
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={handleCancelUpdatedPrice}
+                className="flex-1 rounded-lg border border-gray-300 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmUpdatedPrice}
+                className="btn-primary flex-1 py-2.5 text-sm"
+              >
+                Confirm and pay ₦{priceConfirmation.newTotal.toLocaleString()}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

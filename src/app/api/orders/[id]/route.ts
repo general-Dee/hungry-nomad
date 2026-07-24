@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { timingSafeEqual } from 'crypto';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { isValidOrderStatus, validateTransition, OrderStatus } from '@/lib/orderStatus';
 import { orderGetRatelimit, getClientIp } from '@/lib/ratelimit';
+import { requireStaff } from '@/lib/staffAuth';
 
 // GET /api/orders/[id] — fetch an order's details.
 //
@@ -78,40 +78,23 @@ export async function GET(
 // ---------------------------------------------------------------------------
 // PATCH /api/orders/[id] — transition an order's status.
 //
-// PROVISIONAL AUTH STOPGAP: this app has no staff-auth system yet (that's the
-// future staff/backend app's job to build). Until real auth exists, this
-// endpoint is gated by a single shared secret sent as `x-staff-secret`,
-// checked against the `STAFF_API_SECRET` env var. This is NOT real
-// authentication/authorization — it's one static, unrotatable, all-or-nothing
-// credential shared by every caller. Before the staff app relies on this in
-// production, replace it with proper per-user staff auth (e.g. Supabase Auth
-// with a staff role + RLS policy, or a session-based login). The write
-// already goes through the service-role client (`supabaseAdmin`, which
-// bypasses RLS) — this PATCH's only gate is the shared-secret check above,
-// not RLS.
+// AUTH: real per-user Supabase Auth, gated on a staff role. The caller must
+// send a valid Supabase Auth access token as `Authorization: Bearer <token>`
+// (obtained by signing in at /staff/login), and that user's
+// `app_metadata.role` must be `'staff'` — see `src/lib/staffAuth.ts` for the
+// check and docs/sql/set-staff-role.sql for how the app owner grants the
+// role. Unauthenticated/invalid-token requests get 401; authenticated
+// requests from a non-staff user get 403. The write itself still goes
+// through the service-role client (`supabaseAdmin`, which bypasses RLS) —
+// this auth check is what gates who may call this route, not RLS.
 // ---------------------------------------------------------------------------
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const staffSecret = process.env.STAFF_API_SECRET;
-  if (!staffSecret) {
-    // Fail closed: if the stopgap secret isn't configured, no one can use
-    // this endpoint rather than it silently being wide open.
-    return NextResponse.json(
-      { error: 'Order status updates are not configured on this server.' },
-      { status: 503 }
-    );
-  }
-
-  const providedSecret = request.headers.get('x-staff-secret') ?? '';
-  const providedBuffer = Buffer.from(providedSecret, 'utf8');
-  const secretBuffer = Buffer.from(staffSecret, 'utf8');
-  const isAuthorized =
-    providedBuffer.length === secretBuffer.length &&
-    timingSafeEqual(providedBuffer, secretBuffer);
-  if (!isAuthorized) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await requireStaff(request);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
   const orderId = params.id;
@@ -179,6 +162,18 @@ export async function PATCH(
     console.error('Order status update error:', updateError);
     return NextResponse.json({ error: 'Failed to update order status' }, { status: 500 });
   }
+
+  // Minimal per-user audit trail: real staff auth (see requireStaff above)
+  // now identifies exactly which user made this transition, unlike the old
+  // shared-secret stopgap. No `orders` schema change was in scope for this
+  // change, so this is logged rather than persisted on the row.
+  console.log('Order status updated by staff', {
+    orderId,
+    from: currentStatus,
+    to: targetStatus,
+    staffUserId: auth.user.id,
+    staffEmail: auth.user.email,
+  });
 
   return NextResponse.json({ success: true, order: updatedOrder });
 }

@@ -7,7 +7,7 @@ import { useToast } from './ToastProvider';
 import { motion } from 'framer-motion';
 
 export default function ProductCard({ product, priority = false }: { product: Product; priority?: boolean }) {
-  const { cart, addToCart, updateQuantity } = useCart();
+  const { cart, addToCart, updateQuantity, maxItemQuantity } = useCart();
   const toast = useToast();
   const quantity = cart.find((item) => item.id === product.id)?.quantity ?? 0;
 
@@ -44,22 +44,28 @@ export default function ProductCard({ product, priority = false }: { product: Pr
             Add to Cart
           </button>
         ) : (
-          <div className="mt-5 flex items-center justify-between">
-            <button
-              onClick={() => updateQuantity(product.id, quantity - 1)}
-              aria-label={`Decrease quantity of ${product.name}`}
-              className="w-10 h-10 rounded-full bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center font-bold text-lg transition active:scale-95"
-            >
-              −
-            </button>
-            <span className="font-bold text-lg">{quantity}</span>
-            <button
-              onClick={() => updateQuantity(product.id, quantity + 1)}
-              aria-label={`Increase quantity of ${product.name}`}
-              className="w-10 h-10 rounded-full bg-gradient-to-r from-amber-600 to-amber-500 text-white flex items-center justify-center font-bold text-lg transition active:scale-95"
-            >
-              +
-            </button>
+          <div className="mt-5">
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => updateQuantity(product.id, quantity - 1)}
+                aria-label={`Decrease quantity of ${product.name}`}
+                className="w-10 h-10 rounded-full bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center font-bold text-lg transition active:scale-95"
+              >
+                −
+              </button>
+              <span className="font-bold text-lg">{quantity}</span>
+              <button
+                onClick={() => updateQuantity(product.id, quantity + 1)}
+                aria-label={`Increase quantity of ${product.name}`}
+                disabled={quantity >= maxItemQuantity}
+                className="w-10 h-10 rounded-full bg-gradient-to-r from-amber-600 to-amber-500 text-white flex items-center justify-center font-bold text-lg transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                +
+              </button>
+            </div>
+            {quantity >= maxItemQuantity && (
+              <p className="text-xs text-amber-600 text-center mt-1">Max {maxItemQuantity} per item</p>
+            )}
           </div>
         )}
       </div>

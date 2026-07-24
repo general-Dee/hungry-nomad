@@ -109,6 +109,7 @@ export default function MenuContent({ initialProducts }: { initialProducts: Prod
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search for a dish..."
+          aria-label="Search menu"
           className="input-field pl-11 pr-10"
         />
         {searchQuery && (

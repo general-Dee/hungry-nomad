@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { orderCreateRatelimit, getClientIp } from '@/lib/ratelimit';
 import { isWithinBusinessHours, BUSINESS_HOURS_LABEL } from '@/lib/businessHours';
-import { computeOrderTotal } from '@/lib/pricing';
+import { computeOrderTotal, MAX_ITEM_QUANTITY } from '@/lib/pricing';
 
 interface OrderRequestBody {
   customer_name: string;
@@ -18,7 +18,6 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_NAME_LENGTH = 200;
 const MAX_ADDRESS_LENGTH = 200;
 const MAX_PHONE_LENGTH = 20;
-const MAX_ITEM_QUANTITY = 50;
 
 export async function POST(request: NextRequest) {
   try {
