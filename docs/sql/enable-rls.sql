@@ -27,17 +27,18 @@
 -- How to run:
 --   Paste this entire file into the Supabase Dashboard -> SQL Editor and
 --   run it. This is NOT a migration file and is not wired into any
---   migration tool -- it's meant to be run manually, once, against the
---   live project. The ALTER TABLE ... ENABLE ROW LEVEL SECURITY statements
---   are safe to re-run; the CREATE POLICY statements are NOT (Postgres has
---   no CREATE POLICY IF NOT EXISTS) -- see the re-run note below before
---   running this script a second time.
+--   migration tool -- it's meant to be run manually against the live
+--   project. The ALTER TABLE ... ENABLE ROW LEVEL SECURITY statements are
+--   safe to re-run, and each CREATE POLICY statement is now preceded by a
+--   matching DROP POLICY IF EXISTS, so the whole script is idempotent --
+--   it can be pasted and re-run any number of times without erroring,
+--   even after a prior run already succeeded.
 --
 --   If `orders`/`order_items` already have the old anon_insert_orders /
 --   anon_select_orders / anon_update_orders / anon_insert_order_items /
---   anon_select_order_items policies from a prior run of this script, drop
---   them explicitly (DROP POLICY IF EXISTS <name> ON <table>;) -- RLS stays
---   enabled with zero policies for a role, which is what makes it
+--   anon_select_order_items policies from a prior version of this script,
+--   drop them explicitly (DROP POLICY IF EXISTS <name> ON <table>;) -- RLS
+--   stays enabled with zero policies for a role, which is what makes it
 --   default-deny for `anon` on those two tables now that the app no longer
 --   needs anon access to them.
 --
@@ -50,14 +51,6 @@
 --     3. /success (payment verification + order fetch by id + reference)
 --   If any of these break after running this script, re-check the policy
 --   list below against the operation that failed.
---
--- Note on CREATE POLICY re-runs:
---   Postgres does not support `CREATE POLICY IF NOT EXISTS`. If you need to
---   re-run this script after policies already exist, either drop the
---   existing policies first (DROP POLICY IF EXISTS <name> ON <table>;) or
---   only run the ALTER TABLE ... ENABLE ROW LEVEL SECURITY lines again (those
---   are safe to repeat) and skip the CREATE POLICY statements that already
---   succeeded.
 -- ============================================================================
 
 
@@ -68,6 +61,8 @@
 -- bypassing all server-side pricing logic (see docs/PLATFORM-CONTRACT.md §2).
 -- ----------------------------------------------------------------------------
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS anon_select_products ON products;
 
 CREATE POLICY anon_select_products
   ON products
@@ -82,6 +77,8 @@ CREATE POLICY anon_select_products
 -- as products; open write access would let anyone tamper with delivery fees.
 -- ----------------------------------------------------------------------------
 ALTER TABLE delivery_zones ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS anon_select_delivery_zones ON delivery_zones;
 
 CREATE POLICY anon_select_delivery_zones
   ON delivery_zones
