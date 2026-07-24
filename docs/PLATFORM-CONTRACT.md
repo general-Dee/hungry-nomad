@@ -181,8 +181,7 @@ factored out later.
 
 Source: `src/types/index.ts` (`Order.status` type), `src/app/track/page.tsx`
 (`OrderStatus` type + `STEPS` UI), `src/app/api/orders/route.ts`,
-`src/app/api/verify-payment/route.ts`, `src/lib/orderStatus.ts`,
-`src/app/api/orders/[id]/route.ts` (`PATCH` handler).
+`src/app/api/verify-payment/route.ts`.
 
 The declared TypeScript type is:
 
@@ -195,8 +194,13 @@ status: 'pending' | 'paid' | 'failed' | 'delivered'
   ever inserted.
 - `'paid'` — set on successful, amount-verified Paystack payment
   (`POST /api/verify-payment`).
-- `'failed'` and `'delivered'` — not written by any *automatic* flow, but as
-  of this update can be set via the status-transition endpoint below.
+- `'failed'` and `'delivered'` — this app's own code never writes either of
+  these. Order-status management beyond `pending`/`paid` (marking an order
+  `delivered`, or manually failing a stuck `pending` order) is out of scope
+  for this repo — it is handled end-to-end by a separate staff/admin app,
+  which manages its own auth and writes directly against Supabase using its
+  own service-role credentials (see §5). This repo does not expose any
+  endpoint for transitioning order status.
 
 ### `GET /api/orders/[id]` — fetch an order's details
 
@@ -219,63 +223,17 @@ The only in-app caller is `src/app/success/page.tsx`, right after payment
 verification succeeds, where both `order_id` and `reference` are already
 available from the success-page URL's search params.
 
-### Status transition state machine
+### No status-transition endpoint in this app
 
-`src/lib/orderStatus.ts` defines the only valid transitions, enforced
-server-side (not just documented here):
-
-| from | can transition to |
-|---|---|
-| `pending` | `paid`, `failed` |
-| `paid` | `delivered`, `failed` |
-| `delivered` | *(none — terminal)* |
-| `failed` | *(none — terminal)* |
-
-Same-status "transitions" (e.g. `paid -> paid`) and anything not listed
-(e.g. `delivered -> pending`) are rejected.
-
-### `PATCH /api/orders/[id]` — transition an order's status
-
-Body: `{ "status": "paid" | "failed" | "delivered" | "pending" }`. Validates
-the transition via `src/lib/orderStatus.ts` against the order's current
-status; returns `409` with an explanatory message if the transition isn't
-allowed, `404` if the order doesn't exist, `200` with the updated order on
-success.
-
-**Auth: real per-user Supabase Auth, gated on a staff role.** The caller
-must present a valid Supabase Auth access token as
-`Authorization: Bearer <token>`. `src/lib/staffAuth.ts` validates the token
-via `supabaseAdmin.auth.getUser(token)` and requires the resulting user's
-`app_metadata.role` to equal `'staff'` — `app_metadata` (unlike
-`user_metadata`) is only writable by a service-role/admin client, so a user
-can never self-elevate to staff from the browser. Unauthenticated or
-invalid/expired tokens get `401`; an authenticated user without the staff
-role gets `403`. This replaces the old `x-staff-secret` /
-`STAFF_API_SECRET` shared-secret stopgap — auth is now per-user (each caller
-authenticates as themselves, not as one shared credential) and every
-successful transition is logged with the acting staff user's id/email
-(`console.log`, not persisted on the `orders` row — no schema change was
-made for this).
-
-This app now ships a minimal staff-facing UI to obtain and use that session:
-`/staff/login` (`src/app/staff/login/page.tsx`) is an email/password sign-in
-form against Supabase Auth (`supabase.auth.signInWithPassword`), and
-`/staff` (`src/app/staff/page.tsx`) is a bare-bones authenticated page — not
-a full order-management dashboard — with a form that calls this PATCH
-endpoint directly using the signed-in user's access token. Staff accounts
-are regular Supabase Auth users; there is no self-serve signup, and being
-signed in does **not** imply staff access — the app owner must separately
-grant `app_metadata.role = 'staff'` to a user's account after they exist
-(see `docs/sql/set-staff-role.sql` for the SQL, or the equivalent
-`supabaseAdmin.auth.admin.updateUserById` call), which is what actually
-gates the PATCH endpoint.
-
-Aside from `/staff` and `/staff/login`, this app's own code does not call
-`PATCH /api/orders/[id]` anywhere else — it otherwise exists purely as the
-capability a fuller future staff app is expected to call. `'delivered'`/
-`'failed'` still have no *automatic* trigger in this codebase (e.g. no
-refund flow sets `'failed'` on a `paid` order); a staff app or person is
-expected to call this endpoint deliberately.
+`hungry-nomad` is customer-facing only. It does not expose any endpoint for
+manually transitioning an order's status (e.g. marking an order
+`delivered` or `failed`) and has no staff-facing auth, login page, or UI of
+any kind. That capability lives entirely in a separate staff/admin app,
+which is expected to write directly to `orders`/`order_items` using its own
+Supabase credentials (see §5) rather than calling into this app. A previous
+revision of this repo briefly shipped a `PATCH /api/orders/[id]` endpoint
+plus a `/staff` login/dashboard UI for this; both were removed as out of
+scope for this repo.
 
 ---
 
@@ -343,13 +301,13 @@ allowed to run:
   SELECT-only policies on those two tables).
 - `src/lib/supabaseAdmin.ts` — the service-role client
   (`SUPABASE_SERVICE_ROLE_KEY`, server-only). Used exclusively by the four
-  API routes that touch `orders`/`order_items` (order creation, payment
-  verification, `/track` lookups, and the staff status-transition endpoint)
-  — see §7 for the full table. It bypasses RLS by design, which is why
+  API routes that touch `orders`/`order_items` in this app (order creation,
+  payment verification, `/track` lookups, and `GET /api/orders/[id]`) — see
+  §7 for the full table. It bypasses RLS by design, which is why
   `orders`/`order_items` are now default-deny for `anon`: the app's own
-  ownership-proof checks (reference match, phone match, staff-role Supabase
-  Auth check — see §4) are what actually gate access to those tables now,
-  not RLS.
+  ownership-proof checks (reference match on `GET /api/orders/[id]`, phone
+  match on `/track` — see §4) are what actually gate access to those tables
+  now, not RLS.
 
 Those RLS policies are explicitly defined in `docs/sql/enable-rls.sql` (see
 §7 below for a summary); running that script against a live Supabase project
@@ -357,9 +315,10 @@ is a manual, one-time operation the developer performs from the Supabase
 Dashboard, not something automated by this repo.
 
 A staff app that needs elevated/bypass-RLS access to `orders`/`order_items`
-(e.g. to update `orders.status` to `'delivered'` as an authenticated staff
-action) will need to provision and manage **its own** service-role key or
-proper staff auth — do not reuse this app's `SUPABASE_SERVICE_ROLE_KEY`.
+(e.g. to update `orders.status` to `'delivered'`) will need to provision and
+manage **its own** service-role key and its own auth — do not reuse this
+app's `SUPABASE_SERVICE_ROLE_KEY`. This app deliberately has no endpoint,
+auth, or UI for that kind of write (see §4).
 
 ---
 
@@ -406,10 +365,9 @@ Because the anon key now has zero access to `orders`/`order_items`, RLS is a
 real, enforced boundary against direct-REST-call tampering/PII reads on
 those two tables — not just a backstop behind app-layer logic. The app's own
 ownership-proof checks (the `reference` query param on
-`GET /api/orders/[id]`, the phone-number match on `POST /api/orders/track`,
-the staff-role Supabase Auth check on `PATCH /api/orders/[id]` — see §4)
-still matter: they're what gates *which* rows a legitimate API-route call can
-read/write, since the service-role client itself has no row-level
-restriction once a request reaches it. Server-derived pricing (§2) and
-Paystack amount verification (§2) remain the source of truth for what
-`total_amount`/`status` are allowed to be, independent of RLS.
+`GET /api/orders/[id]`, the phone-number match on `POST /api/orders/track`
+— see §4) still matter: they're what gates *which* rows a legitimate
+API-route call can read/write, since the service-role client itself has no
+row-level restriction once a request reaches it. Server-derived pricing
+(§2) and Paystack amount verification (§2) remain the source of truth for
+what `total_amount`/`status` are allowed to be, independent of RLS.

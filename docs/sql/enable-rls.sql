@@ -17,8 +17,8 @@
 --   Current model: `orders` and `order_items` are default-deny for `anon` --
 --   no policies at all are granted to `anon` on those two tables. All app
 --   access to those tables (checkout order creation, payment-status updates,
---   /track lookups, the staff status-transition endpoint) now goes through
---   a server-only Supabase client backed by the `service_role` key
+--   /track lookups) now goes through a server-only Supabase client backed
+--   by the `service_role` key
 --   (`src/lib/supabaseAdmin.ts`), which is never shipped to the browser and
 --   bypasses RLS entirely by design. `products` and `delivery_zones` still
 --   need browser-side reads (menu display, checkout zone lookup), so `anon`
@@ -48,8 +48,6 @@
 --     1. Checkout flow (place a real or test order end-to-end)
 --     2. /track (look up an order by phone number)
 --     3. /success (payment verification + order fetch by id + reference)
---     4. Staff PATCH /api/orders/[id] (status transition, if you have
---        STAFF_API_SECRET configured)
 --   If any of these break after running this script, re-check the policy
 --   list below against the operation that failed.
 --
@@ -97,9 +95,9 @@ CREATE POLICY anon_select_delivery_zones
 -- anon needs: NOTHING. Default-deny -- no policies granted to `anon` at all.
 --
 -- All order creation (INSERT), reads (SELECT, e.g. /success, /track), and
--- status updates (UPDATE, e.g. payment verification, the staff PATCH
--- endpoint) now go through the server-only service-role client
--- (src/lib/supabaseAdmin.ts), which bypasses RLS entirely. The anon key
+-- status updates (UPDATE, e.g. payment verification) now go through the
+-- server-only service-role client (src/lib/supabaseAdmin.ts), which
+-- bypasses RLS entirely. The anon key
 -- (shipped in the browser bundle) has zero access to this table -- direct
 -- REST calls to Supabase using the anon key can no longer read or write
 -- orders at all, closing the tampering/PII-read hole this script originally
