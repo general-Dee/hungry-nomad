@@ -1,8 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { confirmOrderPaid, extractOrderIdFromMetadata } from '@/lib/paystackPayment';
+import { paymentVerifyRatelimit, getClientIp } from '@/lib/ratelimit';
 
 export async function POST(request: NextRequest) {
   try {
+    if (paymentVerifyRatelimit) {
+      const { success } = await paymentVerifyRatelimit.limit(getClientIp(request));
+      if (!success) {
+        return NextResponse.json(
+          { error: 'Too many attempts. Please wait a moment and try again.' },
+          { status: 429 }
+        );
+      }
+    }
+
     const { reference, order_id } = await request.json();
 
     if (!reference || !order_id) {

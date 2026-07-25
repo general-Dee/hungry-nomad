@@ -29,18 +29,14 @@
 --   run it. This is NOT a migration file and is not wired into any
 --   migration tool -- it's meant to be run manually against the live
 --   project. The ALTER TABLE ... ENABLE ROW LEVEL SECURITY statements are
---   safe to re-run, and each CREATE POLICY statement is now preceded by a
---   matching DROP POLICY IF EXISTS, so the whole script is idempotent --
---   it can be pasted and re-run any number of times without erroring,
+--   safe to re-run, and every CREATE POLICY statement (plus every legacy
+--   policy name this script has ever managed, including the pre-default-deny
+--   anon_insert_orders / anon_select_orders / anon_update_orders /
+--   anon_insert_order_items / anon_select_order_items policies on
+--   `orders`/`order_items`) is preceded by a matching DROP POLICY IF EXISTS,
+--   so the whole script is idempotent -- it can be pasted and re-run any
+--   number of times without erroring or depending on a manual cleanup step,
 --   even after a prior run already succeeded.
---
---   If `orders`/`order_items` already have the old anon_insert_orders /
---   anon_select_orders / anon_update_orders / anon_insert_order_items /
---   anon_select_order_items policies from a prior version of this script,
---   drop them explicitly (DROP POLICY IF EXISTS <name> ON <table>;) -- RLS
---   stays enabled with zero policies for a role, which is what makes it
---   default-deny for `anon` on those two tables now that the app no longer
---   needs anon access to them.
 --
 -- IMPORTANT -- smoke test immediately after running:
 --   A missing or misconfigured policy FAILS CLOSED (breaks a feature, e.g.
@@ -102,6 +98,13 @@ CREATE POLICY anon_select_delivery_zones
 -- ----------------------------------------------------------------------------
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 
+-- Drop legacy policies from a prior version of this script -- RLS stays
+-- enabled with zero policies for `anon`, which is what makes `orders`
+-- default-deny now that the app no longer needs anon access to it.
+DROP POLICY IF EXISTS anon_insert_orders ON orders;
+DROP POLICY IF EXISTS anon_select_orders ON orders;
+DROP POLICY IF EXISTS anon_update_orders ON orders;
+
 
 -- ----------------------------------------------------------------------------
 -- order_items
@@ -112,6 +115,11 @@ ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 -- table.
 -- ----------------------------------------------------------------------------
 ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
+
+-- Drop legacy policies from a prior version of this script -- same reasoning
+-- as orders above.
+DROP POLICY IF EXISTS anon_insert_order_items ON order_items;
+DROP POLICY IF EXISTS anon_select_order_items ON order_items;
 
 -- ============================================================================
 -- End of script.

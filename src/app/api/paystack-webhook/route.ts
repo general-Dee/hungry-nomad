@@ -47,13 +47,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
+  const chargeData = payload.data || {};
+
   // Only charge.success is relevant to marking an order paid — acknowledge
-  // everything else with 200 so Paystack doesn't retry it.
-  if (payload.event !== 'charge.success') {
+  // everything else with 200 so Paystack doesn't retry it. Also check the
+  // charge data's own `status` field (mirroring the outer + inner status
+  // check /api/verify-payment does), so this doesn't rely on event type
+  // alone if Paystack ever sends charge.success for a non-successful charge
+  // or this handler is later widened to other event types.
+  if (payload.event !== 'charge.success' || chargeData.status !== 'success') {
     return NextResponse.json({ success: true });
   }
 
-  const chargeData = payload.data || {};
   const reference = chargeData.reference as string | undefined;
   const amountKobo = chargeData.amount as number | undefined;
   const metadataOrderId = extractOrderIdFromMetadata(chargeData.metadata);

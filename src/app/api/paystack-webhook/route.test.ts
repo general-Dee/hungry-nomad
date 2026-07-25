@@ -74,6 +74,7 @@ function makeRequest(rawBody: string, signature?: string) {
 const chargeSuccessPayload = {
   event: 'charge.success',
   data: {
+    status: 'success',
     reference: 'ref_abc',
     amount: 100000,
     metadata: { custom_fields: [{ variable_name: 'order_id', value: 5 }] },
@@ -117,7 +118,7 @@ describe('POST /api/paystack-webhook', () => {
   it('rejects a validly-signed payload missing the order_id metadata', async () => {
     const payload = {
       event: 'charge.success',
-      data: { reference: 'ref_abc', amount: 100000, metadata: null },
+      data: { status: 'success', reference: 'ref_abc', amount: 100000, metadata: null },
     };
     const body = JSON.stringify(payload);
     const signature = sign(body, SECRET);
@@ -125,6 +126,25 @@ describe('POST /api/paystack-webhook', () => {
     const res = await POST(makeRequest(body, signature));
 
     expect(res.status).toBe(400);
+    expect(mockAdminFrom).not.toHaveBeenCalled();
+  });
+
+  it('acknowledges a charge.success event whose charge data status is not success', async () => {
+    const payload = {
+      event: 'charge.success',
+      data: {
+        status: 'failed',
+        reference: 'ref_abc',
+        amount: 100000,
+        metadata: { custom_fields: [{ variable_name: 'order_id', value: 5 }] },
+      },
+    };
+    const body = JSON.stringify(payload);
+    const signature = sign(body, SECRET);
+
+    const res = await POST(makeRequest(body, signature));
+
+    expect(res.status).toBe(200);
     expect(mockAdminFrom).not.toHaveBeenCalled();
   });
 
