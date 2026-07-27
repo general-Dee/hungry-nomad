@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { orderGetRatelimit, getClientIp } from '@/lib/ratelimit';
+import { getProductName } from '@/lib/orderItems';
 
 // GET /api/orders/[id] — fetch an order's details.
 //
@@ -62,10 +63,9 @@ export async function GET(
     return NextResponse.json({ error: 'Failed to fetch items' }, { status: 500 });
   }
 
-  // The 'products' field is an array with one object because of the nested select
   const formattedItems = (items as any[]).map((item) => ({
     product_id: item.product_id,
-    product_name: item.products[0]?.name || 'Unknown',
+    product_name: getProductName(item, 'Unknown'),
     quantity: item.quantity,
     price_at_time: item.price_at_time,
   }));

@@ -130,7 +130,7 @@ describe('GET /api/orders/[id]', () => {
   it('returns 200 with the order and items when the reference matches', async () => {
     setItemsResult({
       data: [
-        { product_id: 1, quantity: 2, price_at_time: 1000, products: [{ name: 'Jollof Rice' }] },
+        { product_id: 1, quantity: 2, price_at_time: 1000, products: { name: 'Jollof Rice' } },
       ],
       error: null,
     });

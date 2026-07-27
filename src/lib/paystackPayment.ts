@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { sendOrderConfirmationEmail, sendStaffOrderAlertEmail } from '@/lib/email';
+import { getProductName } from '@/lib/orderItems';
 
 interface PaystackCustomField {
   display_name?: string;
@@ -149,7 +150,7 @@ export async function confirmOrderPaid({
   }
 
   const emailItems = ((items as any[]) || []).map((item) => ({
-    product_name: item.products?.name || 'Item',
+    product_name: getProductName(item),
     quantity: item.quantity,
     price_at_time: item.price_at_time,
   }));

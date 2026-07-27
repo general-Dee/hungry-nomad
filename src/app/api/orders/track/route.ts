@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { orderTrackRatelimit, getClientIp } from '@/lib/ratelimit';
+import { getProductName } from '@/lib/orderItems';
 
 function normalizePhone(phone: string) {
   return phone.replace(/\D/g, '').slice(-10);
@@ -60,7 +61,7 @@ export async function POST(request: NextRequest) {
 
     const formattedItems = ((items as any[]) || []).map((item) => ({
       product_id: item.product_id,
-      product_name: item.products?.name || 'Item',
+      product_name: getProductName(item),
       quantity: item.quantity,
       price_at_time: item.price_at_time,
     }));
