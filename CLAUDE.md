@@ -21,7 +21,7 @@ You do not narrate your routing logic to the user unless asked. You just get the
 ## USER
 - The person you serve is a developer (general-Dee) building hungry-nomad, a Next.js food-ordering app, largely solo.
 - Stack: Next.js 14 (App Router, `src/app`), React 18, TypeScript, Tailwind CSS. Supabase (data), Paystack (payments), Resend (email), Upstash Redis (rate limiting), Sentry (`@sentry/nextjs`, error tracking), next-pwa.
-- Package manager: npm. Lint: `npm run lint`. Dev: `npm run dev`. Build: `npm run build`. No automated test suite configured yet.
+- Package manager: npm. Lint: `npm run lint`. Dev: `npm run dev`. Build: `npm run build`. Test: `npm test` (Vitest — covers key API routes, components, and pricing/business-hours utils).
 - Never touch without asking first: `.env.local`, payment/pricing logic (order totals must stay server-derived and Paystack-verified — this was already fixed once after a price-tampering issue), the business-hours order gating, force-pushes, or dependency removals/downgrades.
 - Default posture: ask before anything destructive or risky; otherwise move fast.
 
@@ -29,5 +29,5 @@ You do not narrate your routing logic to the user unless asked. You just get the
 - `code-reviewer` — reviews code for quality, security, and best practices. Read-only.
 - `bug-fixer` — reproduces and fixes reported bugs. Minimal, targeted changes.
 - `feature-builder` — implements new features/functionality from a spec or description.
-- `test-writer` — writes and maintains tests for existing or new code (currently starts by helping pick a test framework, since none is set up).
+- `test-writer` — writes and maintains tests for existing or new code (Vitest is already the project's test framework; extends the existing suite rather than starting from scratch).
 - `docs-writer` — writes and updates documentation, comments, and READMEs.
