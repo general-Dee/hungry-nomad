@@ -113,8 +113,11 @@ describe('MenuContent', () => {
     await user.type(screen.getByPlaceholderText('Search for a dish...'), 'CHEESE');
 
     expect(screen.getByText('Loaded Fries')).toBeInTheDocument();
-    expect(screen.queryByText('Shawarma Deluxe')).not.toBeInTheDocument();
-    expect(screen.queryByText('Fried Rice')).not.toBeInTheDocument();
+    // Filtered-out items now live inside a per-item AnimatePresence and
+    // exit-animate rather than unmounting instantly (same reason as the
+    // category-tab tests above), so wait for them to actually leave.
+    await waitFor(() => expect(screen.queryByText('Shawarma Deluxe')).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText('Fried Rice')).not.toBeInTheDocument());
   });
 
   it('shows a "no dishes match" message when search yields nothing', async () => {
@@ -134,7 +137,8 @@ describe('MenuContent', () => {
 
     const input = screen.getByPlaceholderText('Search for a dish...');
     await user.type(input, 'Chapman');
-    expect(screen.queryByText('Fried Rice')).not.toBeInTheDocument();
+    // Same per-item AnimatePresence exit-animation delay as above.
+    await waitFor(() => expect(screen.queryByText('Fried Rice')).not.toBeInTheDocument());
 
     await user.click(screen.getByRole('button', { name: 'Clear search' }));
 

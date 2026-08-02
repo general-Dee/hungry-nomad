@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useReducer, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useState, useCallback, useMemo, ReactNode } from 'react';
 import { Product, CartItem } from '@/types';
 import { MAX_ITEM_QUANTITY } from '@/lib/pricing';
 
@@ -88,31 +88,41 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem('cart', JSON.stringify(cart));
   }, [cart, isLoaded]);
 
-  const addToCart = (product: Product) => dispatch({ type: 'ADD_ITEM', payload: product });
-  const removeFromCart = (id: number) => dispatch({ type: 'REMOVE_ITEM', payload: id });
-  const updateQuantity = (id: number, quantity: number) =>
-    dispatch({ type: 'UPDATE_QUANTITY', payload: { id, quantity } });
-  const clearCart = () => dispatch({ type: 'CLEAR_CART' });
-  const getCartTotal = () => cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const getCartCount = () => cart.reduce((count, item) => count + item.quantity, 0);
-
-  return (
-    <CartContext.Provider
-      value={{
-        cart,
-        isLoaded,
-        addToCart,
-        removeFromCart,
-        updateQuantity,
-        clearCart,
-        getCartTotal,
-        getCartCount,
-        maxItemQuantity: MAX_ITEM_QUANTITY,
-      }}
-    >
-      {children}
-    </CartContext.Provider>
+  const addToCart = useCallback(
+    (product: Product) => dispatch({ type: 'ADD_ITEM', payload: product }),
+    []
   );
+  const removeFromCart = useCallback((id: number) => dispatch({ type: 'REMOVE_ITEM', payload: id }), []);
+  const updateQuantity = useCallback(
+    (id: number, quantity: number) => dispatch({ type: 'UPDATE_QUANTITY', payload: { id, quantity } }),
+    []
+  );
+  const clearCart = useCallback(() => dispatch({ type: 'CLEAR_CART' }), []);
+  const getCartTotal = useCallback(
+    () => cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
+    [cart]
+  );
+  const getCartCount = useCallback(
+    () => cart.reduce((count, item) => count + item.quantity, 0),
+    [cart]
+  );
+
+  const value = useMemo(
+    () => ({
+      cart,
+      isLoaded,
+      addToCart,
+      removeFromCart,
+      updateQuantity,
+      clearCart,
+      getCartTotal,
+      getCartCount,
+      maxItemQuantity: MAX_ITEM_QUANTITY,
+    }),
+    [cart, isLoaded, addToCart, removeFromCart, updateQuantity, clearCart, getCartTotal, getCartCount]
+  );
+
+  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 };
 
 export const useCart = () => {

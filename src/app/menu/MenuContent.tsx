@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Product, ProductCategory } from '@/types';
 import ProductCard from '@/components/ProductCard';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 const categories: (ProductCategory | 'all')[] = ['all', 'fast_food', 'regular', 'chinese', 'icecream', 'beverages'];
@@ -208,18 +208,11 @@ export default function MenuContent({ initialProducts }: { initialProducts: Prod
           <p className="text-sm mt-1">Try a different keyword or category.</p>
         </div>
       ) : (
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={`${activeCategory}-${activeFastSub}-${activeChineseSub}-${activeRegularSub}`}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.3 }}
-            className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8"
-          >
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          <AnimatePresence>
             {filtered.map((p, i) => <ProductCard key={p.id} product={p} priority={i < 3} />)}
-          </motion.div>
-        </AnimatePresence>
+          </AnimatePresence>
+        </div>
       )}
     </div>
   );

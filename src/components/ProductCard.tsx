@@ -1,22 +1,30 @@
 'use client';
 
 import Image from 'next/image';
+import { memo } from 'react';
 import { Product } from '@/types';
 import { useCart } from '@/context/CartContext';
 import { useToast } from './ToastProvider';
 import { motion } from 'framer-motion';
 
-export default function ProductCard({ product, priority = false }: { product: Product; priority?: boolean }) {
+const CARD_INITIAL = { opacity: 0, y: 20 };
+const CARD_WHILE_IN_VIEW = { opacity: 1, y: 0 };
+const CARD_VIEWPORT = { once: true };
+const CARD_TRANSITION = { duration: 0.4 };
+const CARD_EXIT = { opacity: 0, scale: 0.95 };
+
+function ProductCard({ product, priority = false }: { product: Product; priority?: boolean }) {
   const { cart, addToCart, updateQuantity, maxItemQuantity } = useCart();
   const toast = useToast();
   const quantity = cart.find((item) => item.id === product.id)?.quantity ?? 0;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.4 }}
+      initial={CARD_INITIAL}
+      whileInView={CARD_WHILE_IN_VIEW}
+      viewport={CARD_VIEWPORT}
+      transition={CARD_TRANSITION}
+      exit={CARD_EXIT}
       className="group relative bg-white/70 backdrop-blur-sm rounded-2xl shadow-md overflow-hidden hover:shadow-2xl transition-all duration-500 hover:-translate-y-2"
     >
       <div className="relative h-52 w-full overflow-hidden">
@@ -72,3 +80,5 @@ export default function ProductCard({ product, priority = false }: { product: Pr
     </motion.div>
   );
 }
+
+export default memo(ProductCard);

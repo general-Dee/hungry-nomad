@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 
 type Toast = {
@@ -28,7 +28,7 @@ export default function ToastProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const addToast = (message: string, type: 'success' | 'error') => {
+  const addToast = useCallback((message: string, type: 'success' | 'error') => {
     // Date.now() alone can collide across fast successive calls (e.g. rapid
     // addToCart clicks within the same millisecond); pair it with an
     // incrementing counter so every toast gets a unique id.
@@ -40,7 +40,7 @@ export default function ToastProvider({ children }: { children: ReactNode }) {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 3000);
     timeoutsRef.current.set(id, timeoutId);
-  };
+  }, []);
 
   return (
     <ToastContext.Provider value={addToast}>
