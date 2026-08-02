@@ -4,8 +4,10 @@ import Image from 'next/image';
 import { memo } from 'react';
 import { Product } from '@/types';
 import { useCart } from '@/context/CartContext';
+import { useFavorites } from '@/context/FavoritesContext';
 import { useToast } from './ToastProvider';
 import { motion } from 'framer-motion';
+import { HeartIcon } from '@heroicons/react/24/solid';
 
 const CARD_INITIAL = { opacity: 0, y: 20 };
 const CARD_WHILE_IN_VIEW = { opacity: 1, y: 0 };
@@ -15,8 +17,10 @@ const CARD_EXIT = { opacity: 0, scale: 0.95 };
 
 function ProductCard({ product, priority = false }: { product: Product; priority?: boolean }) {
   const { cart, addToCart, updateQuantity, maxItemQuantity } = useCart();
+  const { isFavorite, toggleFavorite } = useFavorites();
   const toast = useToast();
   const quantity = cart.find((item) => item.id === product.id)?.quantity ?? 0;
+  const favorited = isFavorite(product.id);
 
   return (
     <motion.div
@@ -39,6 +43,15 @@ function ProductCard({ product, priority = false }: { product: Product; priority
         <div className="absolute top-3 right-3 bg-amber-500/90 backdrop-blur-sm text-white text-sm font-bold px-3 py-1 rounded-full shadow-lg">
           ₦{product.price.toLocaleString()}
         </div>
+        <button
+          type="button"
+          onClick={() => toggleFavorite(product.id)}
+          aria-label={favorited ? `Remove ${product.name} from favorites` : `Add ${product.name} to favorites`}
+          aria-pressed={favorited}
+          className="absolute top-3 left-3 z-10 bg-white/80 backdrop-blur-sm rounded-full p-1.5 shadow-md transition active:scale-90"
+        >
+          <HeartIcon className={`w-5 h-5 ${favorited ? 'text-red-500' : 'text-neutral-300'}`} />
+        </button>
       </div>
       <div className="p-5">
         <h3 className="text-xl font-bold text-neutral-800">{product.name}</h3>

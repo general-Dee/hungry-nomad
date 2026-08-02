@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabaseClient';
 import { useCart } from '@/context/CartContext';
+import { reorderItems } from '@/lib/reorder';
+import { addRecentOrder, getRecentOrders, RecentOrderRef } from '@/lib/recentOrders';
 
 type OrderItem = {
   product_id: number;
@@ -30,6 +31,22 @@ const STEPS: { key: OrderStatus; label: string }[] = [
   { key: 'delivered', label: 'Delivered' },
 ];
 
+const STATUS_LABELS: Record<OrderStatus, string> = {
+  pending: 'Order Placed',
+  paid: 'Payment Confirmed',
+  delivered: 'Delivered',
+  failed: 'Payment Failed',
+};
+
+type RecentOrderRow = RecentOrderRef & {
+  status?: OrderStatus;
+  items?: OrderItem[];
+  loading: boolean;
+  unavailable?: boolean;
+  reordering?: boolean;
+  reorderError?: string;
+};
+
 function TrackContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -41,6 +58,41 @@ function TrackContent() {
   const [order, setOrder] = useState<TrackedOrder | null>(null);
   const [reordering, setReordering] = useState(false);
   const [reorderError, setReorderError] = useState('');
+  const [recentOrders, setRecentOrders] = useState<RecentOrderRow[]>([]);
+
+  // On mount, look up the live status of any recently placed orders (saved
+  // locally on this device at checkout/lookup time) so they can be shown
+  // above the manual lookup form without the user re-entering anything.
+  useEffect(() => {
+    const refs = getRecentOrders();
+    if (refs.length === 0) return;
+
+    setRecentOrders(refs.map((r) => ({ ...r, loading: true })));
+
+    refs.forEach(async (ref) => {
+      try {
+        const res = await fetch('/api/orders/track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order_id: String(ref.id), phone: ref.phone }),
+        });
+        const data = await res.json();
+        setRecentOrders((prev) =>
+          prev.map((r) =>
+            r.id === ref.id
+              ? res.ok
+                ? { ...r, loading: false, status: data.status, items: data.items }
+                : { ...r, loading: false, unavailable: true }
+              : r
+          )
+        );
+      } catch {
+        setRecentOrders((prev) =>
+          prev.map((r) => (r.id === ref.id ? { ...r, loading: false, unavailable: true } : r))
+        );
+      }
+    });
+  }, []);
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -58,6 +110,7 @@ function TrackContent() {
         return;
       }
       setOrder(data);
+      addRecentOrder({ id: data.id, phone });
     } catch {
       setError('Something went wrong. Please try again.');
     } finally {
@@ -70,43 +123,55 @@ function TrackContent() {
     setReordering(true);
     setReorderError('');
     try {
-      const productIds = order.items.map((item) => item.product_id);
-      const { data: products, error: fetchError } = await supabase
-        .from('products')
-        .select('*')
-        .in('id', productIds);
-
-      if (fetchError || !products) {
-        setReorderError('Could not reorder right now. Please try again.');
-        return;
-      }
-
-      let addedCount = 0;
-
-      order.items.forEach((item) => {
-        const product = products.find((p) => p.id === item.product_id);
-        if (!product) {
-          return;
-        }
-        const existing = cart.find((c) => c.id === product.id);
-        if (existing) {
-          updateQuantity(product.id, existing.quantity + item.quantity);
-        } else {
-          addToCart(product);
-          if (item.quantity > 1) updateQuantity(product.id, item.quantity);
-        }
-        addedCount += 1;
-      });
-
+      const { addedCount } = await reorderItems(
+        order.items.map((item) => ({ product_id: item.product_id, quantity: item.quantity })),
+        { cart, addToCart, updateQuantity }
+      );
       if (addedCount === 0) {
         setReorderError('Sorry, none of these items are available anymore.');
         return;
       }
       router.push('/cart');
-    } catch {
-      setReorderError('Could not reorder right now. Please try again.');
+    } catch (err) {
+      setReorderError(err instanceof Error ? err.message : 'Could not reorder right now. Please try again.');
     } finally {
       setReordering(false);
+    }
+  };
+
+  const handleRecentReorder = async (row: RecentOrderRow) => {
+    if (!row.items || row.items.length === 0) return;
+    setRecentOrders((prev) =>
+      prev.map((r) => (r.id === row.id ? { ...r, reordering: true, reorderError: '' } : r))
+    );
+    try {
+      const { addedCount } = await reorderItems(
+        row.items.map((item) => ({ product_id: item.product_id, quantity: item.quantity })),
+        { cart, addToCart, updateQuantity }
+      );
+      if (addedCount === 0) {
+        setRecentOrders((prev) =>
+          prev.map((r) =>
+            r.id === row.id
+              ? { ...r, reordering: false, reorderError: 'Sorry, none of these items are available anymore.' }
+              : r
+          )
+        );
+        return;
+      }
+      router.push('/cart');
+    } catch (err) {
+      setRecentOrders((prev) =>
+        prev.map((r) =>
+          r.id === row.id
+            ? {
+                ...r,
+                reordering: false,
+                reorderError: err instanceof Error ? err.message : 'Could not reorder right now. Please try again.',
+              }
+            : r
+        )
+      );
     }
   };
 
@@ -152,6 +217,46 @@ function TrackContent() {
           {loading ? 'Searching...' : 'Track Order'}
         </button>
       </div>
+
+      {recentOrders.length > 0 && (
+        <div className="card-glass p-6 mt-8">
+          <h2 className="text-lg font-semibold mb-4">Recent Orders</h2>
+          <div className="space-y-4">
+            {recentOrders.map((row) => (
+              <div
+                key={row.id}
+                className={`flex items-center justify-between gap-3 rounded-xl border border-neutral-100 p-3 ${
+                  row.unavailable ? 'opacity-50' : ''
+                }`}
+              >
+                <div>
+                  <p className="font-medium">Order #{row.id}</p>
+                  <p className="text-xs text-neutral-500">
+                    {row.loading
+                      ? 'Checking status...'
+                      : row.unavailable
+                        ? 'Unavailable right now'
+                        : row.status
+                          ? STATUS_LABELS[row.status]
+                          : ''}
+                  </p>
+                  {row.reorderError && (
+                    <p className="text-xs text-red-500 mt-1">{row.reorderError}</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleRecentReorder(row)}
+                  disabled={row.loading || row.unavailable || row.reordering || !row.items}
+                  className="btn-primary px-4 py-2 text-sm disabled:opacity-50"
+                >
+                  {row.reordering ? 'Adding...' : 'Reorder'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {order && (
         <div className="card-glass p-6 mt-8">

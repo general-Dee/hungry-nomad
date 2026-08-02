@@ -4,8 +4,10 @@ import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Product, ProductCategory } from '@/types';
 import ProductCard from '@/components/ProductCard';
+import { useFavorites } from '@/context/FavoritesContext';
 import { AnimatePresence } from 'framer-motion';
 import { MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { HeartIcon } from '@heroicons/react/24/solid';
 
 const categories: (ProductCategory | 'all')[] = ['all', 'fast_food', 'regular', 'chinese', 'icecream', 'beverages'];
 const categoryLabels: Record<string, string> = {
@@ -56,6 +58,8 @@ export default function MenuContent({ initialProducts }: { initialProducts: Prod
   const [activeChineseSub, setActiveChineseSub] = useState<string>('all');
   const [activeRegularSub, setActiveRegularSub] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const { favoriteIds } = useFavorites();
 
   useEffect(() => {
     if (categoryParam && categories.includes(categoryParam)) {
@@ -93,8 +97,12 @@ export default function MenuContent({ initialProducts }: { initialProducts: Prod
       );
     }
 
+    if (showFavoritesOnly) {
+      filteredByCategory = filteredByCategory.filter(p => favoriteIds.has(p.id));
+    }
+
     return filteredByCategory;
-  }, [activeCategory, activeFastSub, activeChineseSub, activeRegularSub, initialProducts, searchQuery]);
+  }, [activeCategory, activeFastSub, activeChineseSub, activeRegularSub, initialProducts, searchQuery, showFavoritesOnly, favoriteIds]);
 
   return (
     <div className="container mx-auto px-4 py-12">
@@ -121,6 +129,21 @@ export default function MenuContent({ initialProducts }: { initialProducts: Prod
             <XMarkIcon className="w-5 h-5" />
           </button>
         )}
+      </div>
+
+      {/* Favorites filter */}
+      <div className="flex justify-center mb-6">
+        <button
+          type="button"
+          onClick={() => setShowFavoritesOnly(v => !v)}
+          aria-pressed={showFavoritesOnly}
+          className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+            showFavoritesOnly ? 'bg-amber-600 text-white shadow-md' : 'bg-white/60 backdrop-blur-sm text-neutral-700 hover:bg-amber-100'
+          }`}
+        >
+          <HeartIcon className="w-4 h-4" />
+          {showFavoritesOnly ? 'Showing Favorites' : 'Favorites Only'}
+        </button>
       </div>
 
       {/* Main category tabs */}

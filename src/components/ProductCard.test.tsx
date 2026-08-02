@@ -4,11 +4,16 @@ import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import ProductCard from './ProductCard';
 import { CartProvider } from '@/context/CartContext';
+import { FavoritesProvider } from '@/context/FavoritesContext';
 import { MAX_ITEM_QUANTITY } from '@/lib/pricing';
 import { Product } from '@/types';
 
 function wrapper({ children }: { children: ReactNode }) {
-  return <CartProvider>{children}</CartProvider>;
+  return (
+    <CartProvider>
+      <FavoritesProvider>{children}</FavoritesProvider>
+    </CartProvider>
+  );
 }
 
 const product: Product = {
@@ -66,5 +71,37 @@ describe('ProductCard', () => {
     const increment = screen.getByRole('button', { name: `Increase quantity of ${product.name}` });
     expect(increment).toBeDisabled();
     expect(screen.getByText(`Max ${MAX_ITEM_QUANTITY} per item`)).toBeInTheDocument();
+  });
+
+  it('renders a favorite toggle button that starts unfavorited', () => {
+    render(<ProductCard product={product} />, { wrapper });
+    const favoriteButton = screen.getByRole('button', { name: `Add ${product.name} to favorites` });
+    expect(favoriteButton).toBeInTheDocument();
+    expect(favoriteButton).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('toggles the favorited visual/aria state when the heart button is clicked', async () => {
+    const user = userEvent.setup();
+    render(<ProductCard product={product} />, { wrapper });
+
+    const favoriteButton = screen.getByRole('button', { name: `Add ${product.name} to favorites` });
+    await user.click(favoriteButton);
+
+    const updatedButton = screen.getByRole('button', { name: `Remove ${product.name} from favorites` });
+    expect(updatedButton).toHaveAttribute('aria-pressed', 'true');
+
+    await user.click(updatedButton);
+    const revertedButton = screen.getByRole('button', { name: `Add ${product.name} to favorites` });
+    expect(revertedButton).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('does not trigger add-to-cart behavior when the favorite button is clicked', async () => {
+    const user = userEvent.setup();
+    render(<ProductCard product={product} />, { wrapper });
+
+    await user.click(screen.getByRole('button', { name: `Add ${product.name} to favorites` }));
+
+    expect(screen.getByRole('button', { name: 'Add to Cart' })).toBeInTheDocument();
+    expect(screen.queryByText('1')).not.toBeInTheDocument();
   });
 });

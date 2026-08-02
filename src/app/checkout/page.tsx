@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { event, metaPixelEvent } from '@/lib/tracking';
 import { TAKEAWAY_FEE, requiresTakeawayFee } from '@/lib/pricing';
 import { isWithinBusinessHours, BUSINESS_HOURS_LABEL } from '@/lib/businessHours';
+import { addRecentOrder } from '@/lib/recentOrders';
 import { Order } from '@/types';
 import { ChevronLeftIcon, MapPinIcon, ShoppingCartIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
@@ -187,6 +188,7 @@ export default function CheckoutPage() {
         ],
       },
       callback: (response: { reference: string }) => {
+        addRecentOrder({ id: order.id, phone: formData.customer_phone });
         router.push(`/success?reference=${response.reference}&order_id=${order.id}`);
       },
       onClose: () => router.push('/cancel'),

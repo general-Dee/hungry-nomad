@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import MenuContent from './MenuContent';
 import { CartProvider } from '@/context/CartContext';
+import { FavoritesProvider } from '@/context/FavoritesContext';
 import { Product } from '@/types';
 
 let searchParams = new URLSearchParams();
@@ -12,7 +13,11 @@ vi.mock('next/navigation', () => ({
 }));
 
 function wrapper({ children }: { children: ReactNode }) {
-  return <CartProvider>{children}</CartProvider>;
+  return (
+    <CartProvider>
+      <FavoritesProvider>{children}</FavoritesProvider>
+    </CartProvider>
+  );
 }
 
 const products: Product[] = [
@@ -144,5 +149,44 @@ describe('MenuContent', () => {
 
     expect(input).toHaveValue('');
     expect(screen.getByText('Fried Rice')).toBeInTheDocument();
+  });
+
+  it('hides non-favorited products when "Favorites Only" is toggled on', async () => {
+    searchParams = new URLSearchParams();
+    const user = userEvent.setup();
+    render(<MenuContent initialProducts={products} />, { wrapper });
+
+    await user.click(screen.getByRole('button', { name: 'Add Loaded Fries to favorites' }));
+    await user.click(screen.getByRole('button', { name: 'Favorites Only' }));
+
+    expect(screen.getByText('Loaded Fries')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText('Shawarma Deluxe')).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText('Fried Rice')).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText('Chapman')).not.toBeInTheDocument());
+  });
+
+  it('combines the favorites-only filter (AND) with the active category and search filters', async () => {
+    searchParams = new URLSearchParams();
+    const user = userEvent.setup();
+    render(<MenuContent initialProducts={products} />, { wrapper });
+
+    // Favorite two items in different categories
+    await user.click(screen.getByRole('button', { name: 'Add Loaded Fries to favorites' }));
+    await user.click(screen.getByRole('button', { name: 'Add Fried Rice to favorites' }));
+    await user.click(screen.getByRole('button', { name: 'Favorites Only' }));
+
+    // Both favorites should show
+    expect(screen.getByText('Loaded Fries')).toBeInTheDocument();
+    expect(screen.getByText('Fried Rice')).toBeInTheDocument();
+
+    // Narrow to Fast Food category — only the favorited fast-food item should remain
+    await user.click(screen.getByRole('button', { name: 'Fast Food' }));
+    expect(screen.getByText('Loaded Fries')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText('Fried Rice')).not.toBeInTheDocument());
+
+    // Search narrows further to nothing matching
+    await user.type(screen.getByPlaceholderText('Search for a dish...'), 'nonexistent');
+    await waitFor(() => expect(screen.queryByText('Loaded Fries')).not.toBeInTheDocument());
+    expect(screen.getByText('No dishes match your search.')).toBeInTheDocument();
   });
 });
