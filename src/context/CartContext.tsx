@@ -1,8 +1,13 @@
 'use client';
 
-import React, { createContext, useContext, useReducer, useEffect, useState, useCallback, useMemo, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useLayoutEffect, useState, useCallback, useMemo, ReactNode } from 'react';
 import { Product, CartItem } from '@/types';
 import { MAX_ITEM_QUANTITY } from '@/lib/pricing';
+
+// useLayoutEffect warns when run on the server; fall back to useEffect there.
+// This lets us hydrate cart state before the browser's next paint (avoiding a
+// visible flip from empty -> real state) while still being SSR-safe.
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 type CartState = CartItem[];
 
@@ -68,7 +73,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   // Load cart from localStorage on mount. Dispatches HYDRATE once with the
   // full parsed array (rather than replaying ADD_ITEM per item) so this stays
   // correct even if React Strict Mode double-invokes this effect in dev.
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const saved = localStorage.getItem('cart');
     if (saved) {
       try {

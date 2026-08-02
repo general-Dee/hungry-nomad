@@ -1,6 +1,11 @@
 'use client';
 
-import React, { createContext, useContext, useReducer, useEffect, useState, useCallback, useMemo, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useLayoutEffect, useState, useCallback, useMemo, ReactNode } from 'react';
+
+// useLayoutEffect warns when run on the server; fall back to useEffect there.
+// This lets us hydrate favorites state before the browser's next paint (avoiding
+// a visible flip from empty -> real state) while still being SSR-safe.
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 type FavoritesState = Set<number>;
 
@@ -40,7 +45,7 @@ export const FavoritesProvider = ({ children }: { children: ReactNode }) => {
   // Load favorites from localStorage on mount. Dispatches HYDRATE once with the
   // full parsed array (rather than replaying TOGGLE per item) so this stays
   // correct even if React Strict Mode double-invokes this effect in dev.
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const saved = localStorage.getItem('favorites');
     if (saved) {
       try {
