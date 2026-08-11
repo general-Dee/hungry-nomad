@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import * as Sentry from '@sentry/nextjs';
 import { useCart } from '@/context/CartContext';
 import { supabase } from '@/lib/supabaseClient';
 import { event, metaPixelEvent } from '@/lib/tracking';
@@ -45,6 +46,7 @@ export default function CheckoutPage() {
   const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
   const [selectedZoneId, setSelectedZoneId] = useState<number | null>(null);
   const [loadingZones, setLoadingZones] = useState(true);
+  const [zoneLoadError, setZoneLoadError] = useState('');
 
   const [formData, setFormData] = useState({
     customer_name: '',
@@ -100,25 +102,42 @@ export default function CheckoutPage() {
     if (isLoaded && cart.length === 0) router.push('/cart');
   }, [isLoaded, cart, router]);
 
-  // Fetch delivery zones
-  useEffect(() => {
-    async function fetchZones() {
+  // Fetch delivery zones. Wrapped in try/catch/finally so a thrown error
+  // (e.g. a network hiccup) can't leave loadingZones stuck at true forever —
+  // previously that left the LGA field permanently showing "Loading
+  // zones..." with no way for the customer to proceed. Also surfaces a
+  // visible error + retry action instead of silently rendering an empty,
+  // unusable dropdown when the fetch fails or returns no rows.
+  const fetchZones = useCallback(async () => {
+    setLoadingZones(true);
+    setZoneLoadError('');
+    try {
       const { data, error } = await supabase
         .from('delivery_zones')
         .select('*')
         .order('lga_name', { ascending: true });
-      if (!error && data) {
+      if (error) throw error;
+      if (data && data.length > 0) {
         setDeliveryZones(data);
-        if (data.length > 0) {
-          setSelectedZoneId(data[0].id);
-          setDeliveryFee(data[0].fee);
-          setFormData(prev => ({ ...prev, delivery_lga: data[0].lga_name }));
-        }
+        setSelectedZoneId(data[0].id);
+        setDeliveryFee(data[0].fee);
+        setFormData(prev => ({ ...prev, delivery_lga: data[0].lga_name }));
+      } else {
+        setDeliveryZones([]);
+        setZoneLoadError('No delivery areas are available right now. Please try again shortly.');
       }
+    } catch (err) {
+      console.error('Failed to fetch delivery zones:', err);
+      Sentry.captureException(err);
+      setZoneLoadError('Could not load delivery areas. Please check your connection and try again.');
+    } finally {
       setLoadingZones(false);
     }
-    fetchZones();
   }, []);
+
+  useEffect(() => {
+    fetchZones();
+  }, [fetchZones]);
 
   // Determine if takeaway pack is needed (cart contains Regular or Chinese items)
   useEffect(() => {
@@ -388,6 +407,17 @@ export default function CheckoutPage() {
                   <label className="mb-1 block text-sm font-medium text-gray-700">Local Government Area *</label>
                   {loadingZones ? (
                     <div className="py-2 text-gray-500">Loading zones...</div>
+                  ) : zoneLoadError ? (
+                    <div className="flex items-center justify-between gap-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                      <span>{zoneLoadError}</span>
+                      <button
+                        type="button"
+                        onClick={fetchZones}
+                        className="whitespace-nowrap font-medium underline hover:no-underline"
+                      >
+                        Retry
+                      </button>
+                    </div>
                   ) : (
                     <select
                       value={selectedZoneId || ''}
