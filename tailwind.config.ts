@@ -8,9 +8,6 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: '#f97316', // orange-500 — used for spinner borders (success page, LoadingSpinner)
-        secondary: '#115e59', // teal-800 — deliberate accent, used sparingly for contrast against the amber palette
-
         // Organic design system tokens — see design_handoff_hungry_nomad_redesign/organic-styles.css
         bg: '#f5ead8',
         surface: '#ebddc5',

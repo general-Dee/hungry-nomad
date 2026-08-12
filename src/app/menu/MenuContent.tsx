@@ -240,7 +240,7 @@ export default function MenuContent({ initialProducts }: { initialProducts: Prod
         </div>
       ) : (
         <>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <AnimatePresence initial={false}>
               {visibleProducts.map((p, i) => <ProductCard key={p.id} product={p} priority={i < 3} />)}
             </AnimatePresence>
