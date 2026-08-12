@@ -108,31 +108,76 @@ export default function CheckoutPage() {
   // zones..." with no way for the customer to proceed. Also surfaces a
   // visible error + retry action instead of silently rendering an empty,
   // unusable dropdown when the fetch fails or returns no rows.
+  //
+  // Transient network blips are retried automatically (a few attempts with
+  // short backoff) before falling back to the manual "Retry" banner below —
+  // that banner stays as the final safety net once auto-retries give up.
+  // Each attempt gets a hard timeout via AbortController so a hung request
+  // can't stall the whole flow; the abort signal is passed into the
+  // Supabase query itself so the underlying fetch is actually cancelled,
+  // not just raced against a Promise.
   const fetchZones = useCallback(async () => {
+    const MAX_ATTEMPTS = 3;
+    const TIMEOUT_MS = 9000;
+    const BASE_BACKOFF_MS = 500;
+
     setLoadingZones(true);
     setZoneLoadError('');
-    try {
-      const { data, error } = await supabase
-        .from('delivery_zones')
-        .select('*')
-        .order('lga_name', { ascending: true });
-      if (error) throw error;
-      if (data && data.length > 0) {
-        setDeliveryZones(data);
-        setSelectedZoneId(data[0].id);
-        setDeliveryFee(data[0].fee);
-        setFormData(prev => ({ ...prev, delivery_lga: data[0].lga_name }));
-      } else {
-        setDeliveryZones([]);
-        setZoneLoadError('No delivery areas are available right now. Please try again shortly.');
+
+    let lastError: unknown = null;
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+      try {
+        const { data, error } = await supabase
+          .from('delivery_zones')
+          .select('*')
+          .order('lga_name', { ascending: true })
+          .abortSignal(controller.signal);
+        if (error) throw error;
+        if (data && data.length > 0) {
+          setDeliveryZones(data);
+          setSelectedZoneId(data[0].id);
+          setDeliveryFee(data[0].fee);
+          setFormData(prev => ({ ...prev, delivery_lga: data[0].lga_name }));
+        } else {
+          setDeliveryZones([]);
+          setZoneLoadError('No delivery areas are available right now. Please try again shortly.');
+        }
+        setLoadingZones(false);
+        return;
+      } catch (err) {
+        lastError = err;
+        if (attempt < MAX_ATTEMPTS) {
+          const backoffMs = BASE_BACKOFF_MS * 2 ** (attempt - 1);
+          await new Promise((resolve) => setTimeout(resolve, backoffMs));
+        }
+      } finally {
+        clearTimeout(timeoutId);
       }
-    } catch (err) {
-      console.error('Failed to fetch delivery zones:', err);
-      Sentry.captureException(err);
-      setZoneLoadError('Could not load delivery areas. Please check your connection and try again.');
-    } finally {
-      setLoadingZones(false);
     }
+
+    // All attempts exhausted — log with enough detail to tell an RLS/
+    // permission denial (Supabase/PostgREST errors carry .code/.details/
+    // .hint) apart from a genuine network failure, since default Sentry
+    // serialization of a plain error can lose those fields.
+    const supabaseError = lastError as
+      | { code?: string; message?: string; details?: string; hint?: string }
+      | null;
+    console.error('Failed to fetch delivery zones:', lastError);
+    Sentry.captureException(lastError, {
+      tags: { zone_fetch_error_code: supabaseError?.code ?? 'unknown' },
+      extra: {
+        supabaseErrorCode: supabaseError?.code,
+        supabaseErrorMessage: supabaseError?.message,
+        supabaseErrorDetails: supabaseError?.details,
+        supabaseErrorHint: supabaseError?.hint,
+        attempts: MAX_ATTEMPTS,
+      },
+    });
+    setZoneLoadError('Could not load delivery areas. Please check your connection and try again.');
+    setLoadingZones(false);
   }, []);
 
   useEffect(() => {
