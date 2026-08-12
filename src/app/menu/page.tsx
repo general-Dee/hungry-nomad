@@ -13,9 +13,15 @@ async function getProducts(): Promise<Product[]> {
     .order('name');
 
   if (error) {
+    // Throw (after logging + Sentry capture) instead of returning [] --
+    // this route is ISR-cached (`revalidate = 60`), so silently "succeeding"
+    // with an empty list would get cached as the live menu until the next
+    // regeneration. Throwing lets Next.js keep serving the last known-good
+    // cached page on a failed background regen, and surfaces menu/error.tsx
+    // (with a visible retry) instead of a misleading "no dishes match".
     console.error('Failed to fetch products:', error);
     Sentry.captureException(error);
-    return [];
+    throw error;
   }
 
   return (data || []).reduce<Product[]>((acc, curr) => {
