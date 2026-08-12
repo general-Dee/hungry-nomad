@@ -36,3 +36,9 @@ export interface OrderItem {
   quantity: number;
   price_at_time: number;
 }
+
+export interface DeliveryZone {
+  id: number;
+  lga_name: string;
+  fee: number;
+}

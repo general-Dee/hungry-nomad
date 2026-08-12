@@ -9,15 +9,10 @@ import { event, metaPixelEvent } from '@/lib/tracking';
 import { TAKEAWAY_FEE, requiresTakeawayFee } from '@/lib/pricing';
 import { isWithinBusinessHours, BUSINESS_HOURS_LABEL } from '@/lib/businessHours';
 import { addRecentOrder } from '@/lib/recentOrders';
-import { Order } from '@/types';
+import { getCachedDeliveryZones, setCachedDeliveryZones } from '@/lib/deliveryZoneCache';
+import { Order, DeliveryZone } from '@/types';
 import { ChevronLeftIcon, MapPinIcon, ShoppingCartIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
-
-interface DeliveryZone {
-  id: number;
-  lga_name: string;
-  fee: number;
-}
 
 declare global {
   interface Window {
@@ -47,6 +42,7 @@ export default function CheckoutPage() {
   const [selectedZoneId, setSelectedZoneId] = useState<number | null>(null);
   const [loadingZones, setLoadingZones] = useState(true);
   const [zoneLoadError, setZoneLoadError] = useState('');
+  const [usingCachedZones, setUsingCachedZones] = useState(false);
 
   const [formData, setFormData] = useState({
     customer_name: '',
@@ -123,6 +119,7 @@ export default function CheckoutPage() {
 
     setLoadingZones(true);
     setZoneLoadError('');
+    setUsingCachedZones(false);
 
     let lastError: unknown = null;
 
@@ -141,6 +138,7 @@ export default function CheckoutPage() {
           setSelectedZoneId(data[0].id);
           setDeliveryFee(data[0].fee);
           setFormData(prev => ({ ...prev, delivery_lga: data[0].lga_name }));
+          setCachedDeliveryZones(data);
         } else {
           setDeliveryZones([]);
           setZoneLoadError('No delivery areas are available right now. Please try again shortly.');
@@ -176,7 +174,23 @@ export default function CheckoutPage() {
         attempts: MAX_ATTEMPTS,
       },
     });
-    setZoneLoadError('Could not load delivery areas. Please check your connection and try again.');
+
+    // Live fetch is exhausted — fall back to the last successfully-fetched
+    // zone list cached in localStorage (if any) rather than blocking
+    // checkout outright. The server always re-validates delivery_lga
+    // against the live table on order creation, so a stale cached zone
+    // name is never a money risk — worst case the customer sees a clear
+    // "Invalid delivery zone" error before any payment happens.
+    const cached = getCachedDeliveryZones();
+    if (cached.length > 0) {
+      setDeliveryZones(cached);
+      setSelectedZoneId(cached[0].id);
+      setDeliveryFee(cached[0].fee);
+      setFormData(prev => ({ ...prev, delivery_lga: cached[0].lga_name }));
+      setUsingCachedZones(true);
+    } else {
+      setZoneLoadError('Could not load delivery areas. Please check your connection and try again.');
+    }
     setLoadingZones(false);
   }, []);
 
@@ -466,19 +480,34 @@ export default function CheckoutPage() {
                       </button>
                     </div>
                   ) : (
-                    <select
-                      value={selectedZoneId || ''}
-                      onChange={(e) => handleZoneChange(Number(e.target.value))}
-                      className="input-field"
-                      required
-                    >
-                      <option value="">Select LGA</option>
-                      {deliveryZones.map((zone) => (
-                        <option key={zone.id} value={zone.id}>
-                          {zone.lga_name} – ₦{zone.fee.toLocaleString()}
-                        </option>
-                      ))}
-                    </select>
+                    <>
+                      <select
+                        value={selectedZoneId || ''}
+                        onChange={(e) => handleZoneChange(Number(e.target.value))}
+                        className="input-field"
+                        required
+                      >
+                        <option value="">Select LGA</option>
+                        {deliveryZones.map((zone) => (
+                          <option key={zone.id} value={zone.id}>
+                            {zone.lga_name} – ₦{zone.fee.toLocaleString()}
+                          </option>
+                        ))}
+                      </select>
+                      {usingCachedZones && (
+                        <p className="mt-1.5 text-xs text-neutral-500">
+                          Showing saved delivery areas —{' '}
+                          <button
+                            type="button"
+                            onClick={fetchZones}
+                            className="text-accent-700 underline hover:no-underline"
+                          >
+                            reconnect and press Retry
+                          </button>{' '}
+                          for the latest list.
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
