@@ -350,15 +350,17 @@ export default function CheckoutPage() {
   };
 
   if (!isLoaded) {
-    return <div className="container mx-auto px-4 py-16 text-center text-gray-500">Loading your cart...</div>;
+    return <div className="container mx-auto px-4 py-16 text-center text-neutral-500">Loading your cart...</div>;
   }
 
   if (cart.length === 0) {
     return (
       <div className="container mx-auto px-4 py-16 text-center">
-        <ShoppingCartIcon className="mx-auto h-16 w-16 text-gray-300" />
-        <h2 className="mt-4 text-2xl font-semibold">Your cart is empty</h2>
-        <p className="mt-2 text-gray-500">Add some delicious items to your cart before checking out.</p>
+        <div className="w-[88px] h-[88px] rounded-full bg-accent-100 flex items-center justify-center mx-auto mb-4">
+          <ShoppingCartIcon className="w-11 h-11 text-accent-600" strokeWidth={2.75} />
+        </div>
+        <h2 className="text-3xl font-display">Your cart is empty</h2>
+        <p className="mt-2 text-neutral-500">Add some delicious items to your cart before checking out.</p>
         <Link href="/menu" className="btn-primary mt-6 inline-block">
           Browse Menu
         </Link>
@@ -372,16 +374,16 @@ export default function CheckoutPage() {
         <div className="mb-8 flex items-center gap-3">
           <button
             onClick={() => router.back()}
-            className="rounded-full p-2 hover:bg-gray-200 transition"
+            className="rounded-full p-2 hover:bg-neutral-200 transition"
             aria-label="Go back"
           >
             <ChevronLeftIcon className="h-5 w-5" />
           </button>
-          <h1 className="text-2xl font-bold text-gray-800">Checkout</h1>
+          <h1 className="text-2xl font-display text-text">Checkout</h1>
         </div>
 
         {!isOpen && (
-          <div className="mb-6 rounded-2xl bg-amber-50 border border-amber-200 p-4 text-center text-amber-800">
+          <div className="mb-6 rounded-2xl bg-accent-100 border border-accent-200 p-4 text-center text-accent-800">
             <p className="font-semibold">We&apos;re currently closed</p>
             <p className="text-sm mt-1">
               Orders can be placed between {BUSINESS_HOURS_LABEL}. Your cart is saved — come back during business hours to check out.
@@ -393,19 +395,19 @@ export default function CheckoutPage() {
           <div className="flex-1">
             <div className="card-glass p-6">
               <div className="mb-6 flex items-center gap-2 border-b pb-3">
-                <MapPinIcon className="h-5 w-5 text-amber-600" />
+                <MapPinIcon className="h-5 w-5 text-accent-600" />
                 <h2 className="text-lg font-semibold">Delivery Information</h2>
               </div>
 
               {error && (
-                <div className="mb-4 rounded-lg bg-red-50 p-4 text-sm text-red-700">
+                <div className="mb-4 rounded-lg bg-accent-100 p-4 text-sm text-accent-800">
                   {error}
                 </div>
               )}
 
               <div className="grid gap-5 sm:grid-cols-2">
                 <div className="sm:col-span-2">
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Full name *</label>
+                  <label className="mb-1 block text-sm font-medium text-text/80">Full name *</label>
                   <input
                     type="text"
                     name="customer_name"
@@ -416,7 +418,7 @@ export default function CheckoutPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Email *</label>
+                  <label className="mb-1 block text-sm font-medium text-text/80">Email *</label>
                   <input
                     type="email"
                     name="customer_email"
@@ -427,7 +429,7 @@ export default function CheckoutPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Phone number *</label>
+                  <label className="mb-1 block text-sm font-medium text-text/80">Phone number *</label>
                   <input
                     type="tel"
                     name="customer_phone"
@@ -438,7 +440,7 @@ export default function CheckoutPage() {
                   />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Delivery address *</label>
+                  <label className="mb-1 block text-sm font-medium text-text/80">Delivery address *</label>
                   <textarea
                     name="customer_address"
                     value={formData.customer_address}
@@ -449,11 +451,11 @@ export default function CheckoutPage() {
                   />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Local Government Area *</label>
+                  <label className="mb-1 block text-sm font-medium text-text/80">Local Government Area *</label>
                   {loadingZones ? (
-                    <div className="py-2 text-gray-500">Loading zones...</div>
+                    <div className="py-2 text-neutral-500">Loading zones...</div>
                   ) : zoneLoadError ? (
-                    <div className="flex items-center justify-between gap-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                    <div className="flex items-center justify-between gap-3 rounded-lg bg-accent-100 p-3 text-sm text-accent-800">
                       <span>{zoneLoadError}</span>
                       <button
                         type="button"
@@ -485,13 +487,13 @@ export default function CheckoutPage() {
 
           <div className="lg:w-96">
             <div className="sticky top-24 card-glass p-6">
-              <h2 className="text-lg font-semibold">Order summary</h2>
-              <div className="mt-4 divide-y divide-gray-100">
+              <h2 className="text-2xl font-display">Order summary</h2>
+              <div className="mt-4 divide-y divide-neutral-200">
                 <div className="space-y-2 pb-3">
                   {cart.map((item) => (
                     <div key={item.id} className="flex justify-between text-sm">
-                      <span className="text-gray-600">
-                        {item.name} <span className="text-gray-400">x{item.quantity}</span>
+                      <span className="text-text/80">
+                        {item.name} <span className="text-neutral-400">x{item.quantity}</span>
                       </span>
                       <span className="font-medium">₦{(item.price * item.quantity).toLocaleString()}</span>
                     </div>
@@ -499,16 +501,16 @@ export default function CheckoutPage() {
                 </div>
                 <div className="space-y-2 pt-3">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Subtotal</span>
+                    <span className="text-text/80">Subtotal</span>
                     <span>₦{subtotal.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Delivery fee</span>
+                    <span className="text-text/80">Delivery fee</span>
                     <span>₦{deliveryFee.toLocaleString()}</span>
                   </div>
                   {shouldAddTakeaway && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Take‑away pack</span>
+                      <span className="text-text/80">Take‑away pack</span>
                       <span>₦{takeawayFee.toLocaleString()}</span>
                     </div>
                   )}
@@ -526,7 +528,7 @@ export default function CheckoutPage() {
               >
                 {!isOpen ? "We're closed right now" : loading ? 'Processing...' : !paystackReady ? 'Loading payment...' : 'Proceed to payment'}
               </button>
-              <p className="mt-3 text-center text-xs text-gray-500">
+              <p className="mt-3 text-center text-xs text-neutral-500">
                 You will be redirected to Paystack to complete your payment.
               </p>
             </div>
@@ -536,30 +538,30 @@ export default function CheckoutPage() {
 
       {priceConfirmation && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/55 p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="price-update-heading"
         >
           <div className="card-glass w-full max-w-sm p-6">
             <div className="flex items-start gap-3">
-              <ExclamationTriangleIcon className="h-6 w-6 flex-shrink-0 text-amber-600" />
+              <ExclamationTriangleIcon className="h-6 w-6 flex-shrink-0 text-accent-700" />
               <div>
-                <h2 id="price-update-heading" className="text-lg font-semibold text-gray-800">
+                <h2 id="price-update-heading" className="text-lg font-semibold text-text">
                   Price updated
                 </h2>
-                <p className="mt-1 text-sm text-gray-600">
+                <p className="mt-1 text-sm text-text/80">
                   One or more prices changed since you loaded this page. Please confirm before we charge your card.
                 </p>
               </div>
             </div>
 
-            <div className="mt-4 space-y-1 rounded-lg bg-gray-50 p-3 text-sm">
+            <div className="mt-4 space-y-1 rounded-lg bg-neutral-100 p-3 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-500">Was</span>
-                <span className="text-gray-500 line-through">₦{priceConfirmation.previousTotal.toLocaleString()}</span>
+                <span className="text-neutral-500">Was</span>
+                <span className="text-neutral-500 line-through">₦{priceConfirmation.previousTotal.toLocaleString()}</span>
               </div>
-              <div className="flex justify-between font-semibold text-gray-800">
+              <div className="flex justify-between font-semibold text-text">
                 <span>Now</span>
                 <span>₦{priceConfirmation.newTotal.toLocaleString()}</span>
               </div>
@@ -568,7 +570,7 @@ export default function CheckoutPage() {
             <div className="mt-6 flex gap-3">
               <button
                 onClick={handleCancelUpdatedPrice}
-                className="flex-1 rounded-lg border border-gray-300 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                className="btn-secondary flex-1 text-sm py-2.5"
               >
                 Cancel
               </button>

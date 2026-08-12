@@ -27,15 +27,15 @@ export default function OpenStatusBadge({ variant = 'light', className = '' }: O
   const colorClasses = isOpen
     ? variant === 'dark'
       ? 'bg-white/15 border-white/30 text-white'
-      : 'bg-green-500/10 border-green-500/30 text-green-700'
+      : 'bg-accent2-100 border-accent2-300 text-accent2-800'
     : variant === 'dark'
       ? 'bg-white/10 border-white/20 text-white/80'
-      : 'bg-neutral-500/10 border-neutral-400/30 text-neutral-500';
+      : 'bg-neutral-200 border-neutral-300 text-neutral-700';
 
   const dotClasses = isOpen
     ? variant === 'dark'
-      ? 'bg-green-400 animate-pulse'
-      : 'bg-green-500 animate-pulse'
+      ? 'bg-accent2-400 animate-pulse'
+      : 'bg-accent2-600 animate-pulse'
     : variant === 'dark'
       ? 'bg-white/50'
       : 'bg-neutral-400';

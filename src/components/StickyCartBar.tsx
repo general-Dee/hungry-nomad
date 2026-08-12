@@ -29,14 +29,14 @@ export default function StickyCartBar() {
         >
           <Link
             href="/cart"
-            className="flex items-center justify-between gap-3 bg-gradient-to-r from-amber-600 to-amber-500 text-white rounded-2xl shadow-xl shadow-amber-900/30 px-5 py-3.5"
+            className="flex items-center justify-between gap-3 bg-accent text-bg rounded-2xl shadow-lg px-5 py-3.5"
           >
             <span className="font-semibold">
               {count} item{count > 1 ? 's' : ''} &middot; &#8358;{total.toLocaleString()}
             </span>
             <span className="font-bold flex items-center gap-1">
               View Cart
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.75} stroke="currentColor" className="w-4 h-4">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
               </svg>
             </span>

@@ -29,7 +29,7 @@ function ProductCard({ product, priority = false }: { product: Product; priority
       viewport={CARD_VIEWPORT}
       transition={CARD_TRANSITION}
       exit={CARD_EXIT}
-      className="group relative bg-white/70 backdrop-blur-sm rounded-2xl shadow-md overflow-hidden hover:shadow-2xl transition-all duration-500 hover:-translate-y-2"
+      className="group relative card-glass overflow-hidden"
     >
       <div className="relative h-52 w-full overflow-hidden">
         <Image
@@ -40,7 +40,7 @@ function ProductCard({ product, priority = false }: { product: Product; priority
           priority={priority}
           className="object-cover transition-transform duration-700 group-hover:scale-110"
         />
-        <div className="absolute top-3 right-3 bg-amber-500/90 backdrop-blur-sm text-white text-sm font-bold px-3 py-1 rounded-full shadow-lg">
+        <div className="absolute top-3 right-3 bg-accent text-bg font-display text-[13px] px-3 py-1 rounded-full shadow-sm">
           ₦{product.price.toLocaleString()}
         </div>
         <button
@@ -48,19 +48,18 @@ function ProductCard({ product, priority = false }: { product: Product; priority
           onClick={() => toggleFavorite(product.id)}
           aria-label={favorited ? `Remove ${product.name} from favorites` : `Add ${product.name} to favorites`}
           aria-pressed={favorited}
-          className="absolute top-3 left-3 z-10 bg-white/80 backdrop-blur-sm rounded-full p-1.5 shadow-md transition active:scale-90"
+          className="absolute top-3 left-3 z-10 bg-bg/80 backdrop-blur-sm rounded-full p-1.5 shadow-sm transition active:scale-90"
         >
-          <HeartIcon className={`w-5 h-5 ${favorited ? 'text-red-500' : 'text-neutral-300'}`} />
+          <HeartIcon className={`w-5 h-5 ${favorited ? 'text-accent-600' : 'text-neutral-500'}`} />
         </button>
       </div>
       <div className="p-5">
-        <h3 className="text-xl font-bold text-neutral-800">{product.name}</h3>
-        <p className="text-neutral-500 text-sm mt-1 line-clamp-2">{product.description}</p>
+        <h3 className="font-display text-[19px] text-text">{product.name}</h3>
+        <p className="text-text/70 text-[13px] mt-1 line-clamp-2">{product.description}</p>
         {quantity === 0 ? (
           <button
             onClick={() => { addToCart(product); toast(`✨ ${product.name} added`, 'success'); }}
-            className="mt-5 w-full bg-gradient-to-r from-amber-600 to-amber-500 text-white py-2.5 rounded-full font-semibold
-                       hover:shadow-lg transition-all transform active:scale-95"
+            className="btn-primary mt-5 w-full"
           >
             Add to Cart
           </button>
@@ -79,13 +78,13 @@ function ProductCard({ product, priority = false }: { product: Product; priority
                 onClick={() => updateQuantity(product.id, quantity + 1)}
                 aria-label={`Increase quantity of ${product.name}`}
                 disabled={quantity >= maxItemQuantity}
-                className="w-10 h-10 rounded-full bg-gradient-to-r from-amber-600 to-amber-500 text-white flex items-center justify-center font-bold text-lg transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-10 h-10 rounded-full bg-accent text-bg flex items-center justify-center font-bold text-lg transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 +
               </button>
             </div>
             {quantity >= maxItemQuantity && (
-              <p className="text-xs text-amber-600 text-center mt-1">Max {maxItemQuantity} per item</p>
+              <p className="text-xs text-accent-600 text-center mt-1">Max {maxItemQuantity} per item</p>
             )}
           </div>
         )}

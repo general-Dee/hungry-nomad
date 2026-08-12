@@ -3,6 +3,7 @@
 import * as Sentry from '@sentry/nextjs';
 import { useEffect } from 'react';
 import Link from 'next/link';
+import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 
 export default function RootError({
   error,
@@ -17,9 +18,11 @@ export default function RootError({
 
   return (
     <div className="container mx-auto px-4 py-16 text-center">
-      <div className="text-red-500 text-6xl mb-4">✗</div>
-      <h1 className="text-2xl font-bold mb-4">Something went wrong</h1>
-      <p className="text-gray-600 mb-8">
+      <div className="w-20 h-20 rounded-full bg-accent-100 flex items-center justify-center mx-auto mb-4">
+        <ExclamationTriangleIcon className="w-10 h-10 text-accent-700" strokeWidth={2.75} />
+      </div>
+      <h1 className="text-2xl font-display mb-4">Something went wrong</h1>
+      <p className="text-neutral-500 mb-8">
         We couldn&apos;t load this page. Please try again.
       </p>
       <div className="space-x-4">

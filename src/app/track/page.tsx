@@ -182,7 +182,7 @@ function TrackContent() {
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-2xl">
-      <h1 className="text-4xl font-bold text-center mb-2">Track Your Order</h1>
+      <h1 className="text-4xl font-display text-center mb-2">Track Your Order</h1>
       <p className="text-center text-neutral-500 mb-8">
         Enter your order ID and the phone number used at checkout
       </p>
@@ -270,7 +270,7 @@ function TrackContent() {
                 })}
               </p>
             </div>
-            <span className="text-lg font-bold text-amber-600">
+            <span className="text-lg font-bold text-accent-600">
               ₦{order.total_amount.toLocaleString()}
             </span>
           </div>
@@ -286,13 +286,13 @@ function TrackContent() {
                   {i < STEPS.length - 1 && (
                     <div
                       className={`absolute top-4 left-1/2 w-full h-0.5 ${
-                        i < currentStepIndex ? 'bg-amber-500' : 'bg-neutral-200'
+                        i < currentStepIndex ? 'bg-accent' : 'bg-neutral-200'
                       }`}
                     />
                   )}
                   <div
                     className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold z-10 ${
-                      i <= currentStepIndex ? 'bg-amber-500 text-white' : 'bg-neutral-200 text-neutral-500'
+                      i <= currentStepIndex ? 'bg-accent text-bg' : 'bg-neutral-200 text-neutral-500'
                     }`}
                   >
                     {i + 1}

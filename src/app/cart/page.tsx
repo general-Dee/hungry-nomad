@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useCart } from '@/context/CartContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ShoppingCartIcon } from '@heroicons/react/24/outline';
 import { TAKEAWAY_FEE, requiresTakeawayFee } from '@/lib/pricing';
 
 export default function CartPage() {
@@ -19,8 +20,10 @@ export default function CartPage() {
     return (
       <div className="container mx-auto px-4 py-24 text-center">
         <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="max-w-md mx-auto">
-          <div className="text-6xl mb-4">🛒</div>
-          <h2 className="text-3xl font-bold">Your cart is empty</h2>
+          <div className="w-[88px] h-[88px] rounded-full bg-accent-100 flex items-center justify-center mx-auto mb-4">
+            <ShoppingCartIcon className="w-11 h-11 text-accent-600" strokeWidth={2.75} />
+          </div>
+          <h2 className="text-3xl font-display">Your cart is empty</h2>
           <p className="text-neutral-500 mt-2">Looks like you haven&apos;t added anything yet.</p>
           <Link href="/menu" className="btn-primary inline-block mt-6">Start ordering</Link>
         </motion.div>
@@ -30,7 +33,7 @@ export default function CartPage() {
 
   return (
     <div className="container mx-auto px-4 py-12">
-      <h1 className="text-4xl font-bold mb-8">Your cart</h1>
+      <h1 className="text-4xl font-display mb-8">Your cart</h1>
       <div className="flex flex-col lg:flex-row gap-10">
         <div className="flex-1 space-y-4">
           <AnimatePresence>
@@ -47,7 +50,7 @@ export default function CartPage() {
                 </div>
                 <div className="flex-1">
                   <h3 className="font-bold text-lg">{item.name}</h3>
-                  <p className="text-amber-600 font-medium">₦{item.price.toLocaleString()}</p>
+                  <p className="text-accent-600 font-medium">₦{item.price.toLocaleString()}</p>
                 </div>
                 <div className="flex flex-col items-center sm:items-end gap-1">
                   <div className="flex items-center gap-3">
@@ -76,7 +79,7 @@ export default function CartPage() {
                     </button>
                   </div>
                   {item.quantity >= maxItemQuantity && (
-                    <p className="text-xs text-amber-600">Max {maxItemQuantity} per item</p>
+                    <p className="text-xs text-accent-600">Max {maxItemQuantity} per item</p>
                   )}
                 </div>
                 <div className="font-bold min-w-[80px] text-right">₦{(item.price * item.quantity).toLocaleString()}</div>
@@ -88,7 +91,7 @@ export default function CartPage() {
 
         <div className="lg:w-96">
           <div className="card-glass p-6 sticky top-24">
-            <h2 className="text-2xl font-bold mb-4">Summary</h2>
+            <h2 className="text-2xl font-display mb-4">Summary</h2>
             <div className="space-y-2">
               <div className="flex justify-between"><span>Subtotal</span><span>₦{total.toLocaleString()}</span></div>
               {takeawayFee > 0 && (

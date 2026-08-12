@@ -59,6 +59,7 @@ export default function MenuContent({ initialProducts }: { initialProducts: Prod
   const [activeRegularSub, setActiveRegularSub] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(9);
   const { favoriteIds } = useFavorites();
 
   useEffect(() => {
@@ -104,14 +105,21 @@ export default function MenuContent({ initialProducts }: { initialProducts: Prod
     return filteredByCategory;
   }, [activeCategory, activeFastSub, activeChineseSub, activeRegularSub, initialProducts, searchQuery, showFavoritesOnly, favoriteIds]);
 
+  // Reset pagination back to the first page whenever any filter changes.
+  useEffect(() => {
+    setVisibleCount(9);
+  }, [activeCategory, activeFastSub, activeChineseSub, activeRegularSub, searchQuery, showFavoritesOnly]);
+
+  const visibleProducts = filtered.slice(0, visibleCount);
+
   return (
     <div className="container mx-auto px-4 py-12">
-      <h1 className="text-4xl font-bold text-center mb-2">Our Menu</h1>
-      <p className="text-center text-neutral-500 mb-8">Crafted with passion, served with joy</p>
+      <h1 className="font-display text-center text-4xl mb-2">Our Menu</h1>
+      <p className="text-center text-text/70 mb-8">Crafted with passion, served with joy</p>
 
       {/* Search */}
       <div className="max-w-md mx-auto mb-8 relative">
-        <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 pointer-events-none" />
+        <MagnifyingGlassIcon strokeWidth={2.75} className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 pointer-events-none" />
         <input
           type="text"
           value={searchQuery}
@@ -126,7 +134,7 @@ export default function MenuContent({ initialProducts }: { initialProducts: Prod
             aria-label="Clear search"
             className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
           >
-            <XMarkIcon className="w-5 h-5" />
+            <XMarkIcon strokeWidth={2.75} className="w-5 h-5" />
           </button>
         )}
       </div>
@@ -138,7 +146,7 @@ export default function MenuContent({ initialProducts }: { initialProducts: Prod
           onClick={() => setShowFavoritesOnly(v => !v)}
           aria-pressed={showFavoritesOnly}
           className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
-            showFavoritesOnly ? 'bg-amber-600 text-white shadow-md' : 'bg-white/60 backdrop-blur-sm text-neutral-700 hover:bg-amber-100'
+            showFavoritesOnly ? 'bg-accent text-bg shadow-md' : 'bg-surface text-text hover:bg-accent-100'
           }`}
         >
           <HeartIcon className="w-4 h-4" />
@@ -159,8 +167,8 @@ export default function MenuContent({ initialProducts }: { initialProducts: Prod
             }}
             aria-pressed={activeCategory === cat}
             className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${activeCategory === cat
-                ? 'bg-amber-600 text-white shadow-md'
-                : 'bg-white/60 backdrop-blur-sm text-neutral-700 hover:bg-amber-100'
+                ? 'bg-accent text-bg shadow-md'
+                : 'bg-surface text-text hover:bg-accent-100'
               }`}
           >
             {categoryLabels[cat]}
@@ -177,8 +185,8 @@ export default function MenuContent({ initialProducts }: { initialProducts: Prod
               onClick={() => setActiveFastSub(sub)}
               aria-pressed={activeFastSub === sub}
               className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${activeFastSub === sub
-                  ? 'bg-amber-500 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  ? 'bg-accent text-bg'
+                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                 }`}
             >
               {fastFoodSubLabels[sub]}
@@ -196,8 +204,8 @@ export default function MenuContent({ initialProducts }: { initialProducts: Prod
               onClick={() => setActiveChineseSub(sub)}
               aria-pressed={activeChineseSub === sub}
               className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${activeChineseSub === sub
-                  ? 'bg-amber-500 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  ? 'bg-accent text-bg'
+                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                 }`}
             >
               {chineseSubLabels[sub]}
@@ -215,8 +223,8 @@ export default function MenuContent({ initialProducts }: { initialProducts: Prod
               onClick={() => setActiveRegularSub(sub)}
               aria-pressed={activeRegularSub === sub}
               className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${activeRegularSub === sub
-                  ? 'bg-amber-500 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  ? 'bg-accent text-bg'
+                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                 }`}
             >
               {regularSubLabels[sub]}
@@ -226,16 +234,25 @@ export default function MenuContent({ initialProducts }: { initialProducts: Prod
       )}
 
       {filtered.length === 0 ? (
-        <div className="text-center py-16 text-neutral-500">
+        <div className="text-center py-16 text-text/60">
           <p className="text-lg font-medium">No dishes match your search.</p>
           <p className="text-sm mt-1">Try a different keyword or category.</p>
         </div>
       ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
-          <AnimatePresence initial={false}>
-            {filtered.map((p, i) => <ProductCard key={p.id} product={p} priority={i < 3} />)}
-          </AnimatePresence>
-        </div>
+        <>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            <AnimatePresence initial={false}>
+              {visibleProducts.map((p, i) => <ProductCard key={p.id} product={p} priority={i < 3} />)}
+            </AnimatePresence>
+          </div>
+          {filtered.length > visibleCount && (
+            <div className="flex justify-center mt-10">
+              <button onClick={() => setVisibleCount(v => v + 9)} className="btn-secondary">
+                Load more dishes
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { CheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useCart } from '@/context/CartContext';
 import { event, metaPixelEvent } from '@/lib/tracking';
 
@@ -101,8 +102,8 @@ function SuccessContent() {
   if (status === 'loading') {
     return (
       <div className="container mx-auto px-4 py-16 text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-        <p className="mt-4 text-gray-600">Verifying your payment...</p>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto"></div>
+        <p className="mt-4 text-text/70">Verifying your payment...</p>
       </div>
     );
   }
@@ -110,12 +111,14 @@ function SuccessContent() {
   if (status === 'error') {
     return (
       <div className="container mx-auto px-4 py-16 text-center">
-        <div className="text-red-500 text-6xl mb-4">✗</div>
-        <h1 className="text-2xl font-bold mb-4">We&apos;re confirming your payment</h1>
+        <div className="w-20 h-20 rounded-full bg-neutral-200 flex items-center justify-center mx-auto mb-4">
+          <XMarkIcon className="w-10 h-10 text-neutral-600" strokeWidth={2.75} />
+        </div>
+        <h1 className="text-2xl font-display mb-4">We&apos;re confirming your payment</h1>
         {orderIdParam && (
-          <p className="text-gray-600 mb-1">Order ID: <strong>{orderIdParam}</strong></p>
+          <p className="text-text/70 mb-1">Order ID: <strong>{orderIdParam}</strong></p>
         )}
-        <p className="text-gray-600 mb-8">
+        <p className="text-text/70 mb-8">
           If you were charged, your order is on its way. You can track its status below, or
           contact support with your order ID if anything looks wrong.
         </p>
@@ -123,7 +126,7 @@ function SuccessContent() {
           <Link href="/" className="btn-primary inline-block">Return Home</Link>
         </div>
         {orderIdParam && (
-          <Link href={`/track?order_id=${orderIdParam}`} className="block mt-6 text-sm text-neutral-500 hover:text-amber-600 transition">
+          <Link href={`/track?order_id=${orderIdParam}`} className="block mt-6 text-sm text-neutral-500 hover:text-accent-600 transition">
             Track this order
           </Link>
         )}
@@ -133,16 +136,18 @@ function SuccessContent() {
 
   return (
     <div className="container mx-auto px-4 py-16 text-center">
-      <div className="text-green-500 text-6xl mb-4">✓</div>
-      <h1 className="text-3xl font-bold mb-4">Payment Successful!</h1>
-      <p className="text-gray-600 mb-1">Order ID: <strong>{orderId}</strong></p>
-      <p className="text-gray-600 mb-4">We will send you a confirmation email shortly.</p>
-      <p className="text-gray-700 font-medium mb-8">Thank you for your continued patronage — we truly value you and can&apos;t wait to serve you again!</p>
+      <div className="w-20 h-20 rounded-full bg-accent2-100 flex items-center justify-center mx-auto mb-4">
+        <CheckIcon className="w-10 h-10 text-accent2-700" strokeWidth={2.75} />
+      </div>
+      <h1 className="text-3xl font-display mb-4">Payment Successful!</h1>
+      <p className="text-text/70 mb-1">Order ID: <strong>{orderId}</strong></p>
+      <p className="text-text/70 mb-4">We will send you a confirmation email shortly.</p>
+      <p className="text-text font-medium mb-8">Thank you for your continued patronage — we truly value you and can&apos;t wait to serve you again!</p>
       <div className="space-x-4">
         <Link href="/" className="btn-primary inline-block">Back to Home</Link>
         <Link href="/menu" className="btn-secondary inline-block">Order More</Link>
       </div>
-      <Link href={`/track?order_id=${orderId}`} className="block mt-6 text-sm text-neutral-500 hover:text-amber-600 transition">
+      <Link href={`/track?order_id=${orderId}`} className="block mt-6 text-sm text-neutral-500 hover:text-accent-600 transition">
         Track this order
       </Link>
     </div>

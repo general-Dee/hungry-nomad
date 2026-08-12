@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
@@ -6,9 +6,10 @@ import Header from './Header';
 import { CartProvider, useCart } from '@/context/CartContext';
 import { CartDrawerProvider, useCartDrawer } from '@/context/CartDrawerContext';
 import { Product } from '@/types';
+import { usePathname } from 'next/navigation';
 
 vi.mock('next/navigation', () => ({
-  usePathname: () => '/',
+  usePathname: vi.fn(() => '/'),
 }));
 
 const product: Product = {
@@ -49,6 +50,33 @@ function renderHeader(quantity = 0) {
 }
 
 describe('Header', () => {
+  afterEach(() => {
+    vi.mocked(usePathname).mockReturnValue('/');
+  });
+
+  it('renders a Track order link pointing to /track', () => {
+    renderHeader();
+    const trackLink = screen.getByRole('link', { name: 'Track order' });
+    expect(trackLink).toHaveAttribute('href', '/track');
+  });
+
+  it('highlights the Track order link and not Home/Menu when on /track', () => {
+    vi.mocked(usePathname).mockReturnValue('/track');
+    renderHeader();
+
+    expect(screen.getByRole('link', { name: 'Track order' })).toHaveClass('text-accent-700');
+    expect(screen.getByRole('link', { name: 'Home' })).not.toHaveClass('text-accent-700');
+    expect(screen.getByRole('link', { name: 'Menu' })).not.toHaveClass('text-accent-700');
+  });
+
+  it('does not highlight the Track order link when on another route', () => {
+    vi.mocked(usePathname).mockReturnValue('/');
+    renderHeader();
+
+    expect(screen.getByRole('link', { name: 'Track order' })).not.toHaveClass('text-accent-700');
+    expect(screen.getByRole('link', { name: 'Home' })).toHaveClass('text-accent-700');
+  });
+
   it('does not show a cart count badge when the cart is empty', () => {
     renderHeader();
     expect(screen.queryByText('0')).not.toBeInTheDocument();
