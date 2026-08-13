@@ -6,12 +6,21 @@ import { Product, CartItem } from '@/types';
 // drop items from a reorder, duplicate a cart line, or wipe out an
 // existing quantity — so these tests cover the merge-vs-add branch, the
 // quantity===1 edge case, missing-product handling, and the fetch-error path.
+//
+// The products query is wrapped in withRetry (chaining `.abortSignal(signal)`
+// onto the Supabase query builder), so the mock chain below must expose an
+// `abortSignal` step too, matching the shape used by the real supabase-js
+// PostgrestFilterBuilder.
 
 const { mockFrom, setProductsResult } = vi.hoisted(() => {
   let productsResult: { data: unknown; error: unknown } = { data: [], error: null };
   const mockFrom = vi.fn((table: string) => {
     if (table === 'products') {
-      return { select: () => ({ in: () => Promise.resolve(productsResult) }) };
+      return {
+        select: () => ({
+          in: () => ({ abortSignal: () => Promise.resolve(productsResult) }),
+        }),
+      };
     }
     throw new Error(`Unexpected table in test mock: ${table}`);
   });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { orderGetRatelimit, getClientIp } from '@/lib/ratelimit';
 import { getProductName } from '@/lib/orderItems';
+import { withRetry } from '@/lib/fetchWithRetry';
 
 // GET /api/orders/[id] — fetch an order's details.
 //
@@ -39,27 +40,49 @@ export async function GET(
   // need — the full row also carries customer_email/phone/name and
   // payment_reference, which the frontend never reads and shouldn't be
   // exposed in the response body.
-  const { data: order, error: orderError } = await supabaseAdmin
-    .from('orders')
-    .select('id, total_amount, payment_reference')
-    .eq('id', orderId)
-    .single();
-
-  if (orderError || !order || order.payment_reference !== reference) {
+  let order;
+  try {
+    order = await withRetry(
+      async (signal) => {
+        const { data, error } = await supabaseAdmin
+          .from('orders')
+          .select('id, total_amount, payment_reference')
+          .eq('id', orderId)
+          .abortSignal(signal)
+          .single();
+        if (error) throw error;
+        return data;
+      },
+      { attempts: 2, timeoutMs: 6000 }
+    );
+  } catch {
     return NextResponse.json({ error: 'Order not found' }, { status: 404 });
   }
 
-  const { data: items, error: itemsError } = await supabaseAdmin
-    .from('order_items')
-    .select(`
-      product_id,
-      quantity,
-      price_at_time,
-      products ( name )
-    `)
-    .eq('order_id', orderId);
+  if (!order || order.payment_reference !== reference) {
+    return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+  }
 
-  if (itemsError) {
+  let items;
+  try {
+    items = await withRetry(
+      async (signal) => {
+        const { data, error } = await supabaseAdmin
+          .from('order_items')
+          .select(`
+            product_id,
+            quantity,
+            price_at_time,
+            products ( name )
+          `)
+          .eq('order_id', orderId)
+          .abortSignal(signal);
+        if (error) throw error;
+        return data;
+      },
+      { attempts: 2, timeoutMs: 6000 }
+    );
+  } catch {
     return NextResponse.json({ error: 'Failed to fetch items' }, { status: 500 });
   }
 

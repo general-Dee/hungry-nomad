@@ -2,17 +2,23 @@ import { Suspense } from 'react';
 import * as Sentry from '@sentry/nextjs';
 import MenuContent from './MenuContent';
 import { supabase } from '@/lib/supabaseClient';
+import { withRetry } from '@/lib/fetchWithRetry';
 import { Product } from '@/types';
 
 export const revalidate = 60;
 
 async function getProducts(): Promise<Product[]> {
-  const { data, error } = await supabase
-    .from('products')
-    .select('*')
-    .order('name');
-
-  if (error) {
+  let data;
+  try {
+    data = await withRetry(
+      async (signal) => {
+        const { data, error } = await supabase.from('products').select('*').order('name').abortSignal(signal);
+        if (error) throw error;
+        return data;
+      },
+      { attempts: 2, timeoutMs: 6000 }
+    );
+  } catch (error) {
     // Throw (after logging + Sentry capture) instead of returning [] --
     // this route is ISR-cached (`revalidate = 60`), so silently "succeeding"
     // with an empty list would get cached as the live menu until the next

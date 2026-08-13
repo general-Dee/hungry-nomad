@@ -7,6 +7,11 @@ import { NextRequest } from 'next/server';
 // that behavior down: every failure path below must return 404 with the same
 // generic body, and the DB must never even be queried when the reference is
 // missing outright.
+//
+// Both queries are wrapped in withRetry (chaining `.abortSignal(signal)`
+// onto the Supabase query builder before `.single()`/awaiting), so the mock
+// chain below must expose an `abortSignal` step too, matching the shape used
+// by the real supabase-js PostgrestFilterBuilder.
 
 const { mockFrom, setOrdersResult, setItemsResult } = vi.hoisted(() => {
   let ordersResult: { data: unknown; error: unknown } = { data: null, error: null };
@@ -25,10 +30,14 @@ const { mockFrom, setOrdersResult, setItemsResult } = vi.hoisted(() => {
 
   const mockFrom = vi.fn((table: string) => {
     if (table === 'orders') {
-      return { select: () => ({ eq: () => makeAwaitableQuery(ordersResult) }) };
+      return {
+        select: () => ({ eq: () => ({ abortSignal: () => makeAwaitableQuery(ordersResult) }) }),
+      };
     }
     if (table === 'order_items') {
-      return { select: () => ({ eq: () => makeAwaitableQuery(itemsResult) }) };
+      return {
+        select: () => ({ eq: () => ({ abortSignal: () => makeAwaitableQuery(itemsResult) }) }),
+      };
     }
     throw new Error(`Unexpected table in test mock: ${table}`);
   });

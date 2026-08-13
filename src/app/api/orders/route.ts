@@ -4,6 +4,8 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { orderCreateRatelimit, getClientIp } from '@/lib/ratelimit';
 import { isWithinBusinessHours, BUSINESS_HOURS_LABEL } from '@/lib/businessHours';
 import { computeOrderTotal, MAX_ITEM_QUANTITY } from '@/lib/pricing';
+import { getDeliveryZones } from '@/lib/deliveryZones';
+import { withRetry } from '@/lib/fetchWithRetry';
 
 interface OrderRequestBody {
   customer_name: string;
@@ -100,22 +102,36 @@ export async function POST(request: NextRequest) {
     // delivery zone name, never money amounts, so a tampered request can't
     // change what actually gets charged.
     const productIds = [...new Set(items.map((item) => item.product_id))];
-    const { data: products, error: productsError } = await supabase
-      .from('products')
-      .select('id, price, category')
-      .in('id', productIds);
+    let products;
+    let zones;
+    try {
+      products = await withRetry(
+        async (signal) => {
+          const { data, error } = await supabase
+            .from('products')
+            .select('id, price, category')
+            .in('id', productIds)
+            .abortSignal(signal);
+          if (error) throw error;
+          return data;
+        },
+        { attempts: 2, timeoutMs: 6000 }
+      );
 
-    if (productsError || !products || products.length !== productIds.length) {
+      ({ zones } = await getDeliveryZones());
+    } catch {
+      return NextResponse.json(
+        { error: 'Could not verify order details. Please try again shortly.' },
+        { status: 503 }
+      );
+    }
+
+    if (!products || products.length !== productIds.length) {
       return NextResponse.json({ error: 'One or more items are unavailable' }, { status: 400 });
     }
 
-    const { data: zone, error: zoneError } = await supabase
-      .from('delivery_zones')
-      .select('lga_name, fee')
-      .eq('lga_name', delivery_lga)
-      .single();
-
-    if (zoneError || !zone) {
+    const zone = zones.find((z) => z.lga_name === delivery_lga);
+    if (!zone) {
       return NextResponse.json({ error: 'Invalid delivery zone' }, { status: 400 });
     }
 

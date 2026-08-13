@@ -2,18 +2,25 @@ import Link from 'next/link';
 import Image from 'next/image';
 import * as Sentry from '@sentry/nextjs';
 import { supabase } from '@/lib/supabaseClient';
+import { withRetry } from '@/lib/fetchWithRetry';
 import ProductCard from '@/components/ProductCard';
 import OpenStatusBadge from '@/components/OpenStatusBadge';
 
 async function getFeatured() {
-  const { data, error } = await supabase.from('products').select('*').limit(3);
-
-  if (error) {
+  try {
+    const data = await withRetry(
+      async (signal) => {
+        const { data, error } = await supabase.from('products').select('*').limit(3).abortSignal(signal);
+        if (error) throw error;
+        return data;
+      },
+      { attempts: 2, timeoutMs: 6000 }
+    );
+    return data || [];
+  } catch (error) {
     Sentry.captureException(error);
     throw error;
   }
-
-  return data || [];
 }
 
 function BurgerIcon({ className = '' }: { className?: string }) {

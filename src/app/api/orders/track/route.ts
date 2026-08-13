@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { orderTrackRatelimit, getClientIp } from '@/lib/ratelimit';
 import { getProductName } from '@/lib/orderItems';
+import { withRetry } from '@/lib/fetchWithRetry';
 
 function normalizePhone(phone: string) {
   return phone.replace(/\D/g, '').slice(-10);
@@ -33,14 +34,36 @@ export async function POST(request: NextRequest) {
     // created_at/items) and the ownership check below actually need — the
     // full row also carries customer_email/name and payment_reference, which
     // the frontend never reads and shouldn't be exposed in the response body.
-    const { data: order, error: orderError } = await supabaseAdmin
-      .from('orders')
-      .select('id, customer_phone, customer_address, delivery_lga, total_amount, status, created_at')
-      .eq('id', order_id)
-      .single();
+    let order;
+    try {
+      order = await withRetry(
+        async (signal) => {
+          const { data, error } = await supabaseAdmin
+            .from('orders')
+            .select('id, customer_phone, customer_address, delivery_lga, total_amount, status, created_at')
+            .eq('id', order_id)
+            .abortSignal(signal)
+            .single();
+          // PGRST116 ("no rows returned") from .single() means the query
+          // succeeded and the order genuinely doesn't exist — that's not a
+          // retryable failure, so surface it as a normal "not found" result
+          // rather than throwing (which would count against the retry
+          // budget and get misreported as an outage below).
+          if (error && error.code === 'PGRST116') return null;
+          if (error) throw error;
+          return data;
+        },
+        { attempts: 2, timeoutMs: 6000 }
+      );
+    } catch (lookupError) {
+      console.error('Order lookup error:', lookupError);
+      return NextResponse.json(
+        { error: 'Order lookup is temporarily unavailable. Please try again shortly.' },
+        { status: 503 }
+      );
+    }
 
     if (
-      orderError ||
       !order ||
       normalizePhone(order.customer_phone) !== normalizePhone(phone)
     ) {
@@ -50,12 +73,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data: items, error: itemsError } = await supabaseAdmin
-      .from('order_items')
-      .select('product_id, quantity, price_at_time, products ( name )')
-      .eq('order_id', order_id);
-
-    if (itemsError) {
+    let items: unknown[] | null = null;
+    try {
+      items = await withRetry(
+        async (signal) => {
+          const { data, error } = await supabaseAdmin
+            .from('order_items')
+            .select('product_id, quantity, price_at_time, products ( name )')
+            .eq('order_id', order_id)
+            .abortSignal(signal);
+          if (error) throw error;
+          return data;
+        },
+        { attempts: 2, timeoutMs: 6000 }
+      );
+    } catch (itemsError) {
       console.error('Order items fetch error:', itemsError);
     }
 

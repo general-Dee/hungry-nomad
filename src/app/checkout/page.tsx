@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import * as Sentry from '@sentry/nextjs';
 import { useCart } from '@/context/CartContext';
-import { supabase } from '@/lib/supabaseClient';
 import { event, metaPixelEvent } from '@/lib/tracking';
 import { TAKEAWAY_FEE, requiresTakeawayFee } from '@/lib/pricing';
 import { isWithinBusinessHours, BUSINESS_HOURS_LABEL } from '@/lib/businessHours';
@@ -98,100 +97,81 @@ export default function CheckoutPage() {
     if (isLoaded && cart.length === 0) router.push('/cart');
   }, [isLoaded, cart, router]);
 
-  // Fetch delivery zones. Wrapped in try/catch/finally so a thrown error
-  // (e.g. a network hiccup) can't leave loadingZones stuck at true forever —
-  // previously that left the LGA field permanently showing "Loading
-  // zones..." with no way for the customer to proceed. Also surfaces a
-  // visible error + retry action instead of silently rendering an empty,
-  // unusable dropdown when the fetch fails or returns no rows.
+  // Fetch delivery zones via /api/delivery-zones. Wrapped in try/catch/
+  // finally so a thrown error (e.g. a network hiccup) can't leave
+  // loadingZones stuck at true forever — previously that left the LGA field
+  // permanently showing "Loading zones..." with no way for the customer to
+  // proceed. Also surfaces a visible error + retry action instead of
+  // silently rendering an empty, unusable dropdown when the fetch fails.
   //
-  // Transient network blips are retried automatically (a few attempts with
-  // short backoff) before falling back to the manual "Retry" banner below —
-  // that banner stays as the final safety net once auto-retries give up.
-  // Each attempt gets a hard timeout via AbortController so a hung request
-  // can't stall the whole flow; the abort signal is passed into the
-  // Supabase query itself so the underlying fetch is actually cancelled,
-  // not just raced against a Promise.
+  // The API route itself already retries against Supabase and falls back to
+  // a server-side (Redis) cache, so this only needs a single short
+  // client-side attempt/timeout to guard against the API route itself being
+  // unreachable (e.g. the device is offline, or this is a PWA with no
+  // connectivity at all). On a failure to reach the route, fall back to the
+  // last successfully-fetched zone list cached in localStorage (if any).
   const fetchZones = useCallback(async () => {
-    const MAX_ATTEMPTS = 3;
     const TIMEOUT_MS = 9000;
-    const BASE_BACKOFF_MS = 500;
 
     setLoadingZones(true);
     setZoneLoadError('');
     setUsingCachedZones(false);
 
-    let lastError: unknown = null;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    try {
+      const response = await fetch('/api/delivery-zones', { signal: controller.signal });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body?.error || 'Failed to fetch delivery zones');
 
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
-      try {
-        const { data, error } = await supabase
-          .from('delivery_zones')
-          .select('*')
-          .order('lga_name', { ascending: true })
-          .abortSignal(controller.signal);
-        if (error) throw error;
-        if (data && data.length > 0) {
-          setDeliveryZones(data);
-          setSelectedZoneId(data[0].id);
-          setDeliveryFee(data[0].fee);
-          setFormData(prev => ({ ...prev, delivery_lga: data[0].lga_name }));
-          setCachedDeliveryZones(data);
+      const data: DeliveryZone[] = body.zones;
+      if (data && data.length > 0) {
+        setDeliveryZones(data);
+        setSelectedZoneId(data[0].id);
+        setDeliveryFee(data[0].fee);
+        setFormData(prev => ({ ...prev, delivery_lga: data[0].lga_name }));
+        if (body.stale) {
+          // Server-side fallback (Redis cache) was used — flag the same way
+          // as the localStorage fallback below so the UI messaging is
+          // consistent regardless of which layer served the stale data.
+          setUsingCachedZones(true);
         } else {
-          setDeliveryZones([]);
-          setZoneLoadError('No delivery areas are available right now. Please try again shortly.');
+          // Only cache genuinely live responses to localStorage — this is a
+          // secondary, offline-only safety net on top of the server-side
+          // cache, not a substitute for it.
+          setCachedDeliveryZones(data);
         }
-        setLoadingZones(false);
-        return;
-      } catch (err) {
-        lastError = err;
-        if (attempt < MAX_ATTEMPTS) {
-          const backoffMs = BASE_BACKOFF_MS * 2 ** (attempt - 1);
-          await new Promise((resolve) => setTimeout(resolve, backoffMs));
-        }
-      } finally {
-        clearTimeout(timeoutId);
+      } else {
+        setDeliveryZones([]);
+        setZoneLoadError('No delivery areas are available right now. Please try again shortly.');
       }
-    }
+      setLoadingZones(false);
+      return;
+    } catch (err) {
+      // The API route itself is unreachable (e.g. device offline) — fall
+      // back to the last successfully-fetched zone list cached in
+      // localStorage (if any) rather than blocking checkout outright. The
+      // server always re-validates delivery_lga against the live table (or
+      // its own cache) on order creation, so a stale cached zone name is
+      // never a money risk — worst case the customer sees a clear "Invalid
+      // delivery zone" error before any payment happens.
+      console.error('Failed to fetch delivery zones:', err);
+      Sentry.captureException(err);
 
-    // All attempts exhausted — log with enough detail to tell an RLS/
-    // permission denial (Supabase/PostgREST errors carry .code/.details/
-    // .hint) apart from a genuine network failure, since default Sentry
-    // serialization of a plain error can lose those fields.
-    const supabaseError = lastError as
-      | { code?: string; message?: string; details?: string; hint?: string }
-      | null;
-    console.error('Failed to fetch delivery zones:', lastError);
-    Sentry.captureException(lastError, {
-      tags: { zone_fetch_error_code: supabaseError?.code ?? 'unknown' },
-      extra: {
-        supabaseErrorCode: supabaseError?.code,
-        supabaseErrorMessage: supabaseError?.message,
-        supabaseErrorDetails: supabaseError?.details,
-        supabaseErrorHint: supabaseError?.hint,
-        attempts: MAX_ATTEMPTS,
-      },
-    });
-
-    // Live fetch is exhausted — fall back to the last successfully-fetched
-    // zone list cached in localStorage (if any) rather than blocking
-    // checkout outright. The server always re-validates delivery_lga
-    // against the live table on order creation, so a stale cached zone
-    // name is never a money risk — worst case the customer sees a clear
-    // "Invalid delivery zone" error before any payment happens.
-    const cached = getCachedDeliveryZones();
-    if (cached.length > 0) {
-      setDeliveryZones(cached);
-      setSelectedZoneId(cached[0].id);
-      setDeliveryFee(cached[0].fee);
-      setFormData(prev => ({ ...prev, delivery_lga: cached[0].lga_name }));
-      setUsingCachedZones(true);
-    } else {
-      setZoneLoadError('Could not load delivery areas. Please check your connection and try again.');
+      const cached = getCachedDeliveryZones();
+      if (cached.length > 0) {
+        setDeliveryZones(cached);
+        setSelectedZoneId(cached[0].id);
+        setDeliveryFee(cached[0].fee);
+        setFormData(prev => ({ ...prev, delivery_lga: cached[0].lga_name }));
+        setUsingCachedZones(true);
+      } else {
+        setZoneLoadError('Could not load delivery areas. Please check your connection and try again.');
+      }
+      setLoadingZones(false);
+    } finally {
+      clearTimeout(timeoutId);
     }
-    setLoadingZones(false);
   }, []);
 
   useEffect(() => {

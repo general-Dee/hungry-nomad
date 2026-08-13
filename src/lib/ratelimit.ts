@@ -1,20 +1,6 @@
 import { Ratelimit } from '@upstash/ratelimit';
-import { Redis } from '@upstash/redis';
 import { NextRequest } from 'next/server';
-
-const redis =
-  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
-    ? new Redis({
-        url: process.env.UPSTASH_REDIS_REST_URL,
-        token: process.env.UPSTASH_REDIS_REST_TOKEN,
-      })
-    : null;
-
-if (!redis) {
-  console.warn(
-    '[ratelimit] UPSTASH_REDIS_REST_URL/UPSTASH_REDIS_REST_TOKEN are not set — rate limiting is disabled and all requests will be allowed.'
-  );
-}
+import { redis } from './redisClient';
 
 // Order creation: generous enough for a real customer placing an order,
 // tight enough to stop a script from flooding the orders table.
