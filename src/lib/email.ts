@@ -14,6 +14,11 @@ function getResendClient(): Resend | null {
 
 const FROM_EMAIL = process.env.ORDER_EMAIL_FROM || 'onboarding@resend.dev';
 const STAFF_EMAIL = process.env.STAFF_EMAIL;
+// STAFF_EMAIL supports a comma-separated list of recipients.
+const STAFF_EMAILS = (STAFF_EMAIL || '')
+  .split(',')
+  .map((email) => email.trim())
+  .filter(Boolean);
 
 // Escapes user-supplied strings before they're interpolated into HTML email
 // templates, to prevent HTML/markup injection via order fields (name,
@@ -82,14 +87,14 @@ export async function sendOrderConfirmationEmail(order: OrderEmailDetails, items
 
 export async function sendStaffOrderAlertEmail(order: OrderEmailDetails, items: OrderEmailItem[]) {
   const resend = getResendClient();
-  if (!resend || !STAFF_EMAIL) {
+  if (!resend || STAFF_EMAILS.length === 0) {
     console.warn('RESEND_API_KEY or STAFF_EMAIL not set — skipping staff order alert email');
     return;
   }
   try {
     await resend.emails.send({
       from: `Hungry Nomad Orders <${FROM_EMAIL}>`,
-      to: STAFF_EMAIL,
+      to: STAFF_EMAILS,
       subject: `New Paid Order #${order.id} – ₦${order.total_amount.toLocaleString()}`,
       html: `
         <h2>New order received</h2>
