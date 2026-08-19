@@ -105,20 +105,27 @@ export async function POST(request: NextRequest) {
     let products;
     let zones;
     try {
-      products = await withRetry(
-        async (signal) => {
-          const { data, error } = await supabase
-            .from('products')
-            .select('id, price, category')
-            .in('id', productIds)
-            .abortSignal(signal);
-          if (error) throw error;
-          return data;
-        },
-        { attempts: 2, timeoutMs: 6000 }
-      );
-
-      ({ zones } = await getDeliveryZones());
+      // These two lookups are independent, so run them concurrently rather
+      // than sequentially — worst case (both exhausting retries) otherwise
+      // stacks their latency and risks hitting the platform's function
+      // timeout before we get the chance to return our own friendly 503.
+      const [productsResult, deliveryZonesResult] = await Promise.all([
+        withRetry(
+          async (signal) => {
+            const { data, error } = await supabase
+              .from('products')
+              .select('id, price, category')
+              .in('id', productIds)
+              .abortSignal(signal);
+            if (error) throw error;
+            return data;
+          },
+          { attempts: 2, timeoutMs: 6000 }
+        ),
+        getDeliveryZones(),
+      ]);
+      products = productsResult;
+      zones = deliveryZonesResult.zones;
     } catch {
       return NextResponse.json(
         { error: 'Could not verify order details. Please try again shortly.' },

@@ -5,6 +5,10 @@ import { withRetry } from '@/lib/fetchWithRetry';
 import { DeliveryZone } from '@/types';
 
 const CACHE_KEY = 'cache:delivery_zones';
+// Separate short-lived marker key used only to throttle how often we
+// rewrite CACHE_KEY (see below) — never read for zone data itself.
+const CACHE_WRITE_MARKER_KEY = 'cache:delivery_zones:last_written';
+const CACHE_WRITE_INTERVAL_SECONDS = 60 * 60;
 const ATTEMPTS = 2;
 const TIMEOUT_MS = 5000;
 
@@ -38,12 +42,22 @@ export async function getDeliveryZones(): Promise<DeliveryZonesResult> {
     );
 
     // Fire-and-forget cache write for the fallback path below. This is
-    // static reference data maintained by a separate admin app, so no TTL —
-    // it's only ever replaced by the next successful live fetch.
+    // static reference data maintained by a separate admin app, so no TTL on
+    // the cached zones themselves — they're only ever replaced by the next
+    // gated live write below. This endpoint is hit on every checkout page
+    // load and every order submission, so rewriting the cache on every
+    // single successful fetch would be wasteful Redis write volume for data
+    // that rarely changes — gate it with a short-lived marker key so only
+    // the first successful live fetch within each write-interval window
+    // actually rewrites the cache.
     if (redis) {
-      void redis.set(CACHE_KEY, zones).catch((cacheErr) => {
-        console.error('Failed to cache delivery zones:', cacheErr);
-      });
+      const client = redis;
+      void client
+        .set(CACHE_WRITE_MARKER_KEY, Date.now(), { nx: true, ex: CACHE_WRITE_INTERVAL_SECONDS })
+        .then((acquired) => (acquired === 'OK' ? client.set(CACHE_KEY, zones) : null))
+        .catch((cacheErr) => {
+          console.error('Failed to cache delivery zones:', cacheErr);
+        });
     }
 
     return { zones, source: 'live' };

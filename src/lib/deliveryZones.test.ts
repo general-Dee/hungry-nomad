@@ -82,6 +82,28 @@ describe('getDeliveryZones', () => {
     expect(mockRedisSet).toHaveBeenCalledWith('cache:delivery_zones', [ZONE_A, ZONE_B]);
   });
 
+  it('does not rewrite the zones cache on a second live fetch within the write-interval window', async () => {
+    // Simulate Redis's real SET NX semantics for the write-throttle marker
+    // key: the first call acquires it, subsequent calls within the window
+    // fail (return null) until it "expires" — which the default
+    // mockResolvedValue('OK') stub can't express.
+    let markerAcquired = false;
+    mockRedisSet.mockImplementation((key: string, _value: unknown, opts?: { nx?: boolean }) => {
+      if (key === 'cache:delivery_zones:last_written' && opts?.nx) {
+        if (markerAcquired) return Promise.resolve(null);
+        markerAcquired = true;
+        return Promise.resolve('OK');
+      }
+      return Promise.resolve('OK');
+    });
+
+    await getDeliveryZones();
+    await getDeliveryZones();
+
+    const zonesCacheWrites = mockRedisSet.mock.calls.filter(([key]) => key === 'cache:delivery_zones');
+    expect(zonesCacheWrites).toHaveLength(1);
+  });
+
   it('does not fail the overall call when the fire-and-forget cache write rejects', async () => {
     mockRedisSet.mockReset().mockRejectedValue(new Error('redis unavailable'));
     await expect(getDeliveryZones()).resolves.toEqual({ zones: [ZONE_A, ZONE_B], source: 'live' });
