@@ -27,6 +27,12 @@ export interface Order {
   payment_reference: string | null;
   status: 'pending' | 'paid' | 'failed' | 'delivered';
   created_at: string;
+  utm_source?: string | null;
+  utm_medium?: string | null;
+  utm_campaign?: string | null;
+  utm_content?: string | null;
+  utm_term?: string | null;
+  fbclid?: string | null;
 }
 
 export interface OrderItem {

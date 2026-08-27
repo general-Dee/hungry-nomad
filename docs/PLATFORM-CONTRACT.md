@@ -72,6 +72,12 @@ interface (`src/types/index.ts`) with what the orders API actually inserts:
 | `payment_reference` | `string \| null` | set on successful Paystack verification |
 | `status` | `'pending' \| 'paid' \| 'failed' \| 'delivered'` (declared type) | in practice only `'pending'` and `'paid'` are ever set by this app's code — see §4 |
 | `created_at` | `string` | |
+| `utm_source` | `string \| null` | ad-campaign attribution, captured client-side at landing (`src/lib/attribution.ts`), written at order creation |
+| `utm_medium` | `string \| null` | ad-campaign attribution, captured client-side at landing, written at order creation |
+| `utm_campaign` | `string \| null` | ad-campaign attribution, captured client-side at landing, written at order creation |
+| `utm_content` | `string \| null` | ad-campaign attribution, captured client-side at landing, written at order creation |
+| `utm_term` | `string \| null` | ad-campaign attribution, captured client-side at landing, written at order creation |
+| `fbclid` | `string \| null` | ad-campaign attribution, captured client-side at landing, written at order creation; also feeds the `fbc` parameter on the server-side Meta Conversions API Purchase event (`src/lib/metaCapi.ts`, via `confirmOrderPaid` in `src/lib/paystackPayment.ts`) |
 
 **Known drift:** `src/types/index.ts`'s `Order` interface does not declare
 `delivery_lga` or `delivery_fee`, even though `src/app/api/orders/route.ts`

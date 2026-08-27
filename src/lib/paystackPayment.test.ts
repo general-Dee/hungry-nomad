@@ -344,6 +344,53 @@ describe('confirmOrderPaid', () => {
     });
   });
 
+  it('builds fbc as fb.1.<timestamp>.<fbclid> and passes it through when the order has an fbclid', async () => {
+    const now = 1700000000000;
+    const dateNowSpy = vi.spyOn(Date, 'now').mockReturnValue(now);
+    setUpdateResult({
+      data: {
+        id: 5,
+        total_amount: 1000,
+        status: 'paid',
+        customer_email: 'customer@example.com',
+        customer_phone: '08012345678',
+        fbclid: 'clid_abc123',
+      },
+      error: null,
+    });
+
+    try {
+      const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_fbc_1', amountKobo: 100000 });
+
+      expect(res.status).toBe(200);
+      expect(mockSendMetaPurchaseEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ fbc: `fb.1.${now}.clid_abc123` })
+      );
+    } finally {
+      dateNowSpy.mockRestore();
+    }
+  });
+
+  it('does not pass fbc when the order has no fbclid (older orders / no attribution captured)', async () => {
+    setUpdateResult({
+      data: {
+        id: 5,
+        total_amount: 1000,
+        status: 'paid',
+        customer_email: 'customer@example.com',
+        customer_phone: '08012345678',
+      },
+      error: null,
+    });
+
+    const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_fbc_2', amountKobo: 100000 });
+
+    expect(res.status).toBe(200);
+    expect(mockSendMetaPurchaseEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ fbc: undefined })
+    );
+  });
+
   it('still returns success when sendMetaPurchaseEvent rejects (Promise.allSettled guard)', async () => {
     mockSendMetaPurchaseEvent.mockRejectedValueOnce(new Error('unexpected throw'));
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});

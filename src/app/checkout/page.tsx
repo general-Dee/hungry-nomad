@@ -9,8 +9,9 @@ import { TAKEAWAY_FEE, requiresTakeawayFee } from '@/lib/pricing';
 import { isWithinBusinessHours, BUSINESS_HOURS_LABEL } from '@/lib/businessHours';
 import { addRecentOrder } from '@/lib/recentOrders';
 import { getCachedDeliveryZones, setCachedDeliveryZones } from '@/lib/deliveryZoneCache';
+import { getStoredAttribution } from '@/lib/attribution';
 import { Order, DeliveryZone } from '@/types';
-import { ChevronLeftIcon, MapPinIcon, ShoppingCartIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { ChevronLeftIcon, MapPinIcon, ShoppingCartIcon, ExclamationTriangleIcon, LockClosedIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 
 declare global {
@@ -204,6 +205,7 @@ export default function CheckoutPage() {
   };
 
   const createOrder = async (): Promise<Order> => {
+    const attribution = getStoredAttribution();
     const orderData = {
       customer_name: formData.customer_name,
       customer_email: formData.customer_email,
@@ -214,6 +216,12 @@ export default function CheckoutPage() {
         product_id: item.id,
         quantity: item.quantity,
       })),
+      ...(attribution?.utm_source ? { utm_source: attribution.utm_source } : {}),
+      ...(attribution?.utm_medium ? { utm_medium: attribution.utm_medium } : {}),
+      ...(attribution?.utm_campaign ? { utm_campaign: attribution.utm_campaign } : {}),
+      ...(attribution?.utm_content ? { utm_content: attribution.utm_content } : {}),
+      ...(attribution?.utm_term ? { utm_term: attribution.utm_term } : {}),
+      ...(attribution?.fbclid ? { fbclid: attribution.fbclid } : {}),
     };
     const response = await fetch('/api/orders', {
       method: 'POST',
@@ -387,7 +395,63 @@ export default function CheckoutPage() {
         )}
 
         <div className="flex flex-col gap-8 lg:flex-row">
-          <div className="flex-1">
+          <div className="lg:order-2 lg:w-96">
+            <div className="sticky top-24 card-glass p-6">
+              <h2 className="text-2xl font-display">Order summary</h2>
+              <div className="mt-4 divide-y divide-neutral-200">
+                <div className="space-y-2 pb-3">
+                  {cart.map((item) => (
+                    <div key={item.id} className="flex justify-between text-sm">
+                      <span className="text-text/80">
+                        {item.name} <span className="text-neutral-400">x{item.quantity}</span>
+                      </span>
+                      <span className="font-medium">₦{(item.price * item.quantity).toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-2 pt-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-text/80">Subtotal</span>
+                    <span>₦{subtotal.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-text/80">Delivery fee</span>
+                    <span>₦{deliveryFee.toLocaleString()}</span>
+                  </div>
+                  {shouldAddTakeaway && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-text/80">Take‑away pack</span>
+                      <span>₦{takeawayFee.toLocaleString()}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between border-t pt-2 text-base font-bold">
+                    <span>Total</span>
+                    <span>₦{totalAmount.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={handlePayment}
+                disabled={loading || !!priceConfirmation || !paystackReady || loadingZones || !selectedZoneId || !isOpen}
+                className="btn-primary mt-6 w-full py-3 disabled:opacity-50"
+              >
+                {!isOpen ? "We're closed right now" : loading ? 'Processing...' : !paystackReady ? 'Loading payment...' : 'Proceed to payment'}
+              </button>
+              <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-xs text-neutral-500">
+                <LockClosedIcon className="h-3.5 w-3.5 flex-shrink-0" />
+                Secure payment via Paystack. You will be redirected to Paystack to complete your payment.
+              </p>
+              <p className="mt-1.5 text-center text-xs text-neutral-500">
+                Need help?{' '}
+                <a href="tel:+2347062169786" className="text-accent-700 underline hover:no-underline">
+                  Call 070 6216 9786
+                </a>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex-1 lg:order-1">
             <div className="card-glass p-6">
               <div className="mb-6 flex items-center gap-2 border-b pb-3">
                 <MapPinIcon className="h-5 w-5 text-accent-600" />
@@ -492,55 +556,6 @@ export default function CheckoutPage() {
                   )}
                 </div>
               </div>
-            </div>
-          </div>
-
-          <div className="lg:w-96">
-            <div className="sticky top-24 card-glass p-6">
-              <h2 className="text-2xl font-display">Order summary</h2>
-              <div className="mt-4 divide-y divide-neutral-200">
-                <div className="space-y-2 pb-3">
-                  {cart.map((item) => (
-                    <div key={item.id} className="flex justify-between text-sm">
-                      <span className="text-text/80">
-                        {item.name} <span className="text-neutral-400">x{item.quantity}</span>
-                      </span>
-                      <span className="font-medium">₦{(item.price * item.quantity).toLocaleString()}</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="space-y-2 pt-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-text/80">Subtotal</span>
-                    <span>₦{subtotal.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-text/80">Delivery fee</span>
-                    <span>₦{deliveryFee.toLocaleString()}</span>
-                  </div>
-                  {shouldAddTakeaway && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-text/80">Take‑away pack</span>
-                      <span>₦{takeawayFee.toLocaleString()}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between border-t pt-2 text-base font-bold">
-                    <span>Total</span>
-                    <span>₦{totalAmount.toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
-
-              <button
-                onClick={handlePayment}
-                disabled={loading || !!priceConfirmation || !paystackReady || loadingZones || !selectedZoneId || !isOpen}
-                className="btn-primary mt-6 w-full py-3 disabled:opacity-50"
-              >
-                {!isOpen ? "We're closed right now" : loading ? 'Processing...' : !paystackReady ? 'Loading payment...' : 'Proceed to payment'}
-              </button>
-              <p className="mt-3 text-center text-xs text-neutral-500">
-                You will be redirected to Paystack to complete your payment.
-              </p>
             </div>
           </div>
         </div>

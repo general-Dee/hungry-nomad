@@ -32,13 +32,14 @@ export async function sendMetaPurchaseEvent(params: {
   email?: string | null;
   phone?: string | null;
   eventSourceUrl?: string;
+  fbc?: string | null;
 }): Promise<void> {
   if (!META_CAPI_TOKEN || !META_PIXEL_ID) {
     console.warn('Meta Conversions API skipped: META_CONVERSIONS_API_TOKEN or NEXT_PUBLIC_META_PIXEL_ID not set');
     return;
   }
 
-  const { eventId, value, contentIds, email, phone, eventSourceUrl } = params;
+  const { eventId, value, contentIds, email, phone, eventSourceUrl, fbc } = params;
 
   // This call is awaited inside confirmOrderPaid's Promise.all, which is
   // itself awaited and returned directly by the verify-payment and webhook
@@ -49,9 +50,12 @@ export async function sendMetaPurchaseEvent(params: {
   const timeoutId = setTimeout(() => controller.abort(), 5000);
 
   try {
-    const userData: Record<string, string[]> = {};
+    const userData: Record<string, string[] | string> = {};
     if (email) userData.em = [hashEmail(email)];
     if (phone) userData.ph = [hashPhone(phone)];
+    // fbc is not hashed — per Meta's spec it's sent as plain text, unlike
+    // em/ph which must be sha256-hashed.
+    if (fbc) userData.fbc = fbc;
 
     const response = await fetch(
       `https://graph.facebook.com/v20.0/${META_PIXEL_ID}/events`,

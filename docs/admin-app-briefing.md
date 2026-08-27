@@ -55,6 +55,12 @@ creates.
 | `payment_reference` | `string \| null` | set only on verified Paystack payment |
 | `status` | `'pending' \| 'paid' \| 'failed' \| 'delivered'` | see §2 for what's legitimate |
 | `created_at` | `string` | |
+| `utm_source` | `string \| null` | ad-campaign attribution, captured client-side at landing, written at order creation |
+| `utm_medium` | `string \| null` | ad-campaign attribution, captured client-side at landing, written at order creation |
+| `utm_campaign` | `string \| null` | ad-campaign attribution, captured client-side at landing, written at order creation |
+| `utm_content` | `string \| null` | ad-campaign attribution, captured client-side at landing, written at order creation |
+| `utm_term` | `string \| null` | ad-campaign attribution, captured client-side at landing, written at order creation |
+| `fbclid` | `string \| null` | ad-campaign attribution, captured client-side at landing, written at order creation; also feeds hungry-nomad's server-side Meta Conversions API Purchase event |
 
 Note: hungry-nomad's own TypeScript `Order` interface historically drifted
 from what its API actually inserts (it's since been reconciled to include

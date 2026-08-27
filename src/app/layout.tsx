@@ -9,6 +9,7 @@ import { TransitionProvider } from '@/context/TransitionContext';
 import Header from '@/components/Header';
 import ToastProvider from '@/components/ToastProvider';
 import MetaPixel from '@/components/MetaPixel';
+import InstallPrompt from '@/components/InstallPrompt';
 import StickyCartBar from '@/components/StickyCartBar';
 import CartDrawer from '@/components/CartDrawer';
 import Providers from './providers';
@@ -114,6 +115,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <TransitionProvider>
                   <ToastProvider>
                     <MetaPixel />
+                    <InstallPrompt />
                     <Header />
                     <CartDrawer />
                     <main className="min-h-screen">{children}</main>

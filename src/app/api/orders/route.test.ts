@@ -263,4 +263,124 @@ describe('POST /api/orders', () => {
       expect((await res.json()).error).toBe('Invalid delivery zone');
     });
   });
+
+  describe('ad-attribution fields (utm_* + fbclid)', () => {
+    it('creates the order successfully with no attribution fields at all (backward compat)', async () => {
+      const res = await POST(makeRequest({ ...VALID_CUSTOMER, items: VALID_ITEMS }));
+
+      expect(res.status).toBe(200);
+      const payload = getLastInsertedOrderPayload() as Record<string, unknown>;
+      for (const field of ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid']) {
+        expect(payload).not.toHaveProperty(field);
+      }
+    });
+
+    it('passes valid attribution fields through to the orders insert', async () => {
+      const res = await POST(
+        makeRequest({
+          ...VALID_CUSTOMER,
+          items: VALID_ITEMS,
+          utm_source: 'google',
+          utm_medium: 'cpc',
+          utm_campaign: 'summer_promo',
+          utm_content: 'ad1',
+          utm_term: 'jollof rice',
+          fbclid: 'clid_abc123',
+        })
+      );
+
+      expect(res.status).toBe(200);
+      const payload = getLastInsertedOrderPayload() as Record<string, unknown>;
+      expect(payload).toMatchObject({
+        utm_source: 'google',
+        utm_medium: 'cpc',
+        utm_campaign: 'summer_promo',
+        utm_content: 'ad1',
+        utm_term: 'jollof rice',
+        fbclid: 'clid_abc123',
+      });
+    });
+
+    it('accepts a subset of attribution fields, omitting the rest from the insert', async () => {
+      const res = await POST(
+        makeRequest({
+          ...VALID_CUSTOMER,
+          items: VALID_ITEMS,
+          utm_source: 'facebook',
+          fbclid: 'clid_xyz',
+        })
+      );
+
+      expect(res.status).toBe(200);
+      const payload = getLastInsertedOrderPayload() as Record<string, unknown>;
+      expect(payload.utm_source).toBe('facebook');
+      expect(payload.fbclid).toBe('clid_xyz');
+      expect(payload).not.toHaveProperty('utm_medium');
+      expect(payload).not.toHaveProperty('utm_campaign');
+    });
+
+    it('trims whitespace-padded attribution field values before storing', async () => {
+      const res = await POST(
+        makeRequest({ ...VALID_CUSTOMER, items: VALID_ITEMS, utm_source: '  google  ' })
+      );
+
+      expect(res.status).toBe(200);
+      const payload = getLastInsertedOrderPayload() as Record<string, unknown>;
+      expect(payload.utm_source).toBe('google');
+    });
+
+    it('drops an attribution field that is empty or only whitespace, without rejecting the order', async () => {
+      const res = await POST(
+        makeRequest({ ...VALID_CUSTOMER, items: VALID_ITEMS, utm_source: '   ', utm_medium: 'cpc' })
+      );
+
+      expect(res.status).toBe(200);
+      const payload = getLastInsertedOrderPayload() as Record<string, unknown>;
+      expect(payload).not.toHaveProperty('utm_source');
+      expect(payload.utm_medium).toBe('cpc');
+    });
+
+    it('drops an attribution field that exceeds the 255-char cap, without rejecting the order', async () => {
+      const res = await POST(
+        makeRequest({ ...VALID_CUSTOMER, items: VALID_ITEMS, utm_source: 'a'.repeat(256), utm_medium: 'cpc' })
+      );
+
+      expect(res.status).toBe(200);
+      const payload = getLastInsertedOrderPayload() as Record<string, unknown>;
+      expect(payload).not.toHaveProperty('utm_source');
+      expect(payload.utm_medium).toBe('cpc');
+    });
+
+    it('accepts an attribution field at exactly the 255-char cap', async () => {
+      const res = await POST(
+        makeRequest({ ...VALID_CUSTOMER, items: VALID_ITEMS, utm_source: 'a'.repeat(255) })
+      );
+
+      expect(res.status).toBe(200);
+      const payload = getLastInsertedOrderPayload() as Record<string, unknown>;
+      expect(payload.utm_source).toBe('a'.repeat(255));
+    });
+
+    it('drops an attribution field that is the wrong type (not a string), without rejecting the order', async () => {
+      const res = await POST(
+        makeRequest({ ...VALID_CUSTOMER, items: VALID_ITEMS, fbclid: 12345, utm_medium: 'cpc' })
+      );
+
+      expect(res.status).toBe(200);
+      const payload = getLastInsertedOrderPayload() as Record<string, unknown>;
+      expect(payload).not.toHaveProperty('fbclid');
+      expect(payload.utm_medium).toBe('cpc');
+    });
+
+    it('drops an attribution field that is an object/array, without rejecting the order', async () => {
+      const res = await POST(
+        makeRequest({ ...VALID_CUSTOMER, items: VALID_ITEMS, utm_campaign: { nested: true }, utm_medium: 'cpc' })
+      );
+
+      expect(res.status).toBe(200);
+      const payload = getLastInsertedOrderPayload() as Record<string, unknown>;
+      expect(payload).not.toHaveProperty('utm_campaign');
+      expect(payload.utm_medium).toBe('cpc');
+    });
+  });
 });

@@ -3,10 +3,18 @@
 import Script from 'next/script';
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
+import { captureAttributionFromUrl } from '@/lib/attribution';
 
 export default function MetaPixel() {
   const pixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID;
   const pathname = usePathname();
+
+  // Capture UTM/fbclid params from the URL on every page load/navigation,
+  // regardless of whether the pixel itself is configured — attribution
+  // capture shouldn't depend on NEXT_PUBLIC_META_PIXEL_ID being set.
+  useEffect(() => {
+    captureAttributionFromUrl();
+  }, [pathname]);
 
   useEffect(() => {
     if (!pixelId) return;

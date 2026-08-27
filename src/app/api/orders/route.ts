@@ -14,12 +14,20 @@ interface OrderRequestBody {
   customer_address: string;
   delivery_lga: string;
   items: { product_id: number; quantity: number }[];
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_content?: string;
+  utm_term?: string;
+  fbclid?: string;
 }
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_NAME_LENGTH = 200;
 const MAX_ADDRESS_LENGTH = 200;
 const MAX_PHONE_LENGTH = 20;
+const MAX_ATTRIBUTION_FIELD_LENGTH = 255;
+const ATTRIBUTION_FIELDS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid'] as const;
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,7 +54,20 @@ export async function POST(request: NextRequest) {
     } catch {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
-    const { customer_name, customer_email, customer_phone, customer_address, delivery_lga, items } = body;
+    const {
+      customer_name,
+      customer_email,
+      customer_phone,
+      customer_address,
+      delivery_lga,
+      items,
+      utm_source,
+      utm_medium,
+      utm_campaign,
+      utm_content,
+      utm_term,
+      fbclid,
+    } = body;
 
     if (
       !customer_name ||
@@ -95,6 +116,28 @@ export async function POST(request: NextRequest) {
         { error: `Each item must have a valid quantity between 1 and ${MAX_ITEM_QUANTITY}` },
         { status: 400 }
       );
+    }
+
+    // Ad-attribution fields (UTM params + fbclid) are optional, best-effort
+    // ad-tracking metadata, not core order data — a field that's the wrong
+    // type or too long (e.g. corrupted/tampered localStorage) should never
+    // be able to block a real customer from placing an order. Silently drop
+    // any invalid field instead of rejecting the whole order.
+    const attributionInput: Record<string, unknown> = {
+      utm_source,
+      utm_medium,
+      utm_campaign,
+      utm_content,
+      utm_term,
+      fbclid,
+    };
+    const attributionData: Record<string, string> = {};
+    for (const field of ATTRIBUTION_FIELDS) {
+      const value = attributionInput[field];
+      if (typeof value === 'string' && value.length <= MAX_ATTRIBUTION_FIELD_LENGTH) {
+        const trimmed = value.trim();
+        if (trimmed) attributionData[field] = trimmed;
+      }
     }
 
     // Prices, delivery fee, and takeaway fee are always derived from the
@@ -167,6 +210,7 @@ export async function POST(request: NextRequest) {
         delivery_fee: deliveryFee,
         total_amount,
         status: 'pending',
+        ...attributionData,
       })
       .select()
       .single();

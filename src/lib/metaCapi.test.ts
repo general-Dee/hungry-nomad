@@ -133,6 +133,53 @@ describe('sendMetaPurchaseEvent', () => {
     expect(body.data[0].user_data).toEqual({ ph: [sha256('08012345678')] });
   });
 
+  it('includes fbc unhashed in user_data when provided', async () => {
+    process.env.META_CONVERSIONS_API_TOKEN = 'token_123';
+    process.env.NEXT_PUBLIC_META_PIXEL_ID = 'pixel_123';
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, text: () => Promise.resolve('') });
+    vi.stubGlobal('fetch', fetchMock);
+    const { sendMetaPurchaseEvent } = await loadMetaCapi();
+
+    await sendMetaPurchaseEvent({
+      eventId: 'ref_1',
+      value: 1000,
+      contentIds: ['1'],
+      fbc: 'fb.1.1700000000000.abc123',
+    });
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    // fbc is sent as plain text per Meta's spec, unlike em/ph which are
+    // sha256-hashed — assert it's passed through verbatim, not hashed.
+    expect(body.data[0].user_data.fbc).toBe('fb.1.1700000000000.abc123');
+  });
+
+  it('omits fbc from user_data when not provided', async () => {
+    process.env.META_CONVERSIONS_API_TOKEN = 'token_123';
+    process.env.NEXT_PUBLIC_META_PIXEL_ID = 'pixel_123';
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, text: () => Promise.resolve('') });
+    vi.stubGlobal('fetch', fetchMock);
+    const { sendMetaPurchaseEvent } = await loadMetaCapi();
+
+    await sendMetaPurchaseEvent({ eventId: 'ref_1', value: 1000, contentIds: ['1'] });
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.data[0].user_data.fbc).toBeUndefined();
+    expect('fbc' in body.data[0].user_data).toBe(false);
+  });
+
+  it('omits fbc from user_data when explicitly null', async () => {
+    process.env.META_CONVERSIONS_API_TOKEN = 'token_123';
+    process.env.NEXT_PUBLIC_META_PIXEL_ID = 'pixel_123';
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, text: () => Promise.resolve('') });
+    vi.stubGlobal('fetch', fetchMock);
+    const { sendMetaPurchaseEvent } = await loadMetaCapi();
+
+    await sendMetaPurchaseEvent({ eventId: 'ref_1', value: 1000, contentIds: ['1'], fbc: null });
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect('fbc' in body.data[0].user_data).toBe(false);
+  });
+
   it('does not throw when the fetch call rejects (e.g. network failure)', async () => {
     process.env.META_CONVERSIONS_API_TOKEN = 'token_123';
     process.env.NEXT_PUBLIC_META_PIXEL_ID = 'pixel_123';

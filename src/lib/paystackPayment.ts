@@ -156,6 +156,23 @@ export async function confirmOrderPaid({
     price_at_time: item.price_at_time,
   }));
 
+  // Build the Meta `fbc` click-id parameter (Meta's documented format:
+  // fb.1.<timestamp_ms>.<fbclid>) from whatever was captured client-side and
+  // threaded through order creation (src/lib/attribution.ts,
+  // src/app/api/orders/route.ts). `fbclid`/`utm_*` columns only exist once
+  // docs/sql/add-attribution-columns.sql has been run against the live
+  // project, and older orders predate this entirely, so `order.fbclid` may
+  // be undefined here — guard for that rather than assuming it's present.
+  //
+  // There's no `captured_at` column on `orders` (see
+  // docs/sql/add-attribution-columns.sql — only the six attribution fields
+  // are stored), so a true capture timestamp is never available here.
+  // Falling back to Date.now() at send time is a reasonable approximation
+  // (Meta only uses this to bound event freshness, not for precise
+  // attribution timing) rather than skipping fbc entirely whenever fbclid is
+  // present.
+  const fbc = order.fbclid ? `fb.1.${Date.now()}.${order.fbclid}` : undefined;
+
   // Best-effort notifications — a failure here shouldn't fail the payment
   // confirmation. Each callee already guards against throwing internally,
   // but that's an unenforced cross-file contract; wrap this in its own
@@ -171,6 +188,7 @@ export async function confirmOrderPaid({
       contentIds: ((items as any[]) || []).map((item) => String(item.product_id)),
       email: order.customer_email,
       phone: order.customer_phone,
+      fbc,
     }),
   ]);
   for (const result of results) {

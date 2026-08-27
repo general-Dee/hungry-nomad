@@ -116,6 +116,7 @@ export default async function Home() {
                     src={heroImageUrl}
                     alt=""
                     fill
+                    priority
                     sizes="(max-width: 1024px) 100vw, 45vw"
                     className="object-cover saturate-[0.6] contrast-[0.85] brightness-110 opacity-95"
                   />
@@ -184,7 +185,7 @@ export default async function Home() {
             <h2 className="text-4xl text-center mb-4">Signature Dishes</h2>
             <p className="text-center text-neutral-500 mb-12">Chef’s selection of our most loved meals</p>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
-              {featured.map(product => <ProductCard key={product.id} product={product} />)}
+              {featured.map((product, i) => <ProductCard key={product.id} product={product} priority={i === 0} />)}
             </div>
           </div>
         </section>
