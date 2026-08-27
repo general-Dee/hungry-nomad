@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import * as Sentry from '@sentry/nextjs';
 import { CheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useCart } from '@/context/CartContext';
 import { event, metaPixelEvent } from '@/lib/tracking';
@@ -58,31 +59,42 @@ function SuccessContent() {
             const orderRes = await fetch(`/api/orders/${orderIdParam}?reference=${reference}`);
             const orderData = (await orderRes.json()) as OrderWithItems;
 
-            // GA4 purchase
-            event('purchase', {
-              transaction_id: orderIdParam,
-              value: orderData.total_amount,
-              currency: 'NGN',
-              tax: 0,
-              shipping: 500,
-              items: orderData.items.map((item) => ({
-                item_id: item.product_id.toString(),
-                item_name: item.product_name,
-                price: item.price_at_time,
-                quantity: item.quantity,
-              })),
-            });
+            const hasValidTotal = Number.isFinite(orderData.total_amount) && orderData.total_amount > 0;
+            const hasItems = Array.isArray(orderData.items) && orderData.items.length > 0;
 
-            // Meta Pixel purchase
-            metaPixelEvent('Purchase', {
-              value: orderData.total_amount,
-              currency: 'NGN',
-              transaction_id: orderIdParam,
-              content_ids: orderData.items.map((i) => i.product_id.toString()),
-              num_items: orderData.items.reduce((acc, i) => acc + i.quantity, 0),
-            });
+            if (!hasValidTotal || !hasItems) {
+              console.error('Purchase tracking skipped: invalid order data', orderData);
+            } else {
+              // GA4 purchase
+              event('purchase', {
+                transaction_id: orderIdParam,
+                value: orderData.total_amount,
+                currency: 'NGN',
+                tax: 0,
+                shipping: 500,
+                items: orderData.items.map((item) => ({
+                  item_id: item.product_id.toString(),
+                  item_name: item.product_name,
+                  price: item.price_at_time,
+                  quantity: item.quantity,
+                })),
+              });
+
+              // Meta Pixel purchase — eventID matches the event_id sent by the
+              // server-side CAPI Purchase call (src/lib/metaCapi.ts, keyed off
+              // the Paystack reference) so Meta's Events Manager can dedupe them.
+              metaPixelEvent('Purchase', {
+                value: orderData.total_amount,
+                currency: 'NGN',
+                content_type: 'product',
+                transaction_id: orderIdParam,
+                content_ids: orderData.items.map((i) => i.product_id.toString()),
+                num_items: orderData.items.reduce((acc, i) => acc + i.quantity, 0),
+              }, reference ?? undefined);
+            }
           } catch (trackingError) {
             console.error('Purchase tracking error:', trackingError);
+            Sentry.captureException(trackingError);
           }
         } else {
           setStatus('error');

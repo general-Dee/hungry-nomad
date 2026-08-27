@@ -62,6 +62,20 @@ vi.mock('@/lib/email', () => ({
   sendStaffOrderAlertEmail: mockSendStaffOrderAlertEmail,
 }));
 
+const { mockSendMetaPurchaseEvent } = vi.hoisted(() => ({
+  mockSendMetaPurchaseEvent: vi.fn(),
+}));
+
+// Mocked the same way as '@/lib/email' above, since confirmOrderPaid treats
+// it identically: a best-effort, fire-and-forget side effect. Kept as a
+// factory (rather than a plain object literal) so the "network failure"
+// resilience test below can still reach the *real* implementation via
+// importOriginal — see that test for why.
+vi.mock('@/lib/metaCapi', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/metaCapi')>();
+  return { ...actual, sendMetaPurchaseEvent: mockSendMetaPurchaseEvent };
+});
+
 import { confirmOrderPaid, extractOrderIdFromMetadata } from './paystackPayment';
 
 describe('extractOrderIdFromMetadata', () => {
@@ -128,6 +142,8 @@ describe('confirmOrderPaid', () => {
     mockAdminFrom.mockClear();
     mockSendOrderConfirmationEmail.mockClear();
     mockSendStaffOrderAlertEmail.mockClear();
+    mockSendMetaPurchaseEvent.mockClear();
+    mockSendMetaPurchaseEvent.mockResolvedValue(undefined);
     setOrderResult({ data: { total_amount: 1000, status: 'pending' }, error: null });
     setUpdateResult({ data: { id: 5, total_amount: 1000, status: 'paid' }, error: null });
     setItemsResult({ data: [], error: null });
@@ -170,6 +186,7 @@ describe('confirmOrderPaid', () => {
     expect(updateSpy).not.toHaveBeenCalled();
     expect(mockSendOrderConfirmationEmail).not.toHaveBeenCalled();
     expect(mockSendStaffOrderAlertEmail).not.toHaveBeenCalled();
+    expect(mockSendMetaPurchaseEvent).not.toHaveBeenCalled();
   });
 
   it('rejects with 400 when amountKobo does not match the order total, without updating or emailing', async () => {
@@ -293,5 +310,83 @@ describe('confirmOrderPaid', () => {
       { id: 5, total_amount: 1000, status: 'paid' },
       []
     );
+  });
+
+  it('invokes sendMetaPurchaseEvent exactly once with the reference, total, product ids and contact details on pending -> paid', async () => {
+    setUpdateResult({
+      data: {
+        id: 5,
+        total_amount: 1000,
+        status: 'paid',
+        customer_email: 'customer@example.com',
+        customer_phone: '08012345678',
+      },
+      error: null,
+    });
+    setItemsResult({
+      data: [
+        { product_id: 7, quantity: 2, price_at_time: 300, products: { name: 'Jollof Rice' } },
+        { product_id: 9, quantity: 1, price_at_time: 400, products: { name: 'Suya' } },
+      ],
+      error: null,
+    });
+
+    const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_meta_1', amountKobo: 100000 });
+
+    expect(res.status).toBe(200);
+    expect(mockSendMetaPurchaseEvent).toHaveBeenCalledTimes(1);
+    expect(mockSendMetaPurchaseEvent).toHaveBeenCalledWith({
+      eventId: 'ref_meta_1',
+      value: 1000,
+      contentIds: ['7', '9'],
+      email: 'customer@example.com',
+      phone: '08012345678',
+    });
+  });
+
+  it('still returns success when sendMetaPurchaseEvent rejects (Promise.allSettled guard)', async () => {
+    mockSendMetaPurchaseEvent.mockRejectedValueOnce(new Error('unexpected throw'));
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_1', amountKobo: 100000 });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toEqual({ success: true });
+    expect(mockSendOrderConfirmationEmail).toHaveBeenCalled();
+    expect(mockSendStaffOrderAlertEmail).toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Order confirmation side effect failed:',
+      expect.any(Error)
+    );
+  });
+
+  it('still returns success when the real Meta Conversions API network call fails', async () => {
+    // src/lib/metaCapi.ts's real sendMetaPurchaseEvent is documented to
+    // never reject (it wraps its own fetch in try/catch) — confirmOrderPaid
+    // relies entirely on that guarantee (see the NOTE above), so this test
+    // exercises the real, un-mocked implementation with a failing network
+    // call to confirm that guarantee actually holds end-to-end.
+    process.env.META_CONVERSIONS_API_TOKEN = 'test-token';
+    process.env.NEXT_PUBLIC_META_PIXEL_ID = 'test-pixel';
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    vi.resetModules();
+    const real = await vi.importActual<typeof import('./metaCapi')>('./metaCapi');
+    mockSendMetaPurchaseEvent.mockImplementationOnce(real.sendMetaPurchaseEvent);
+
+    try {
+      const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_1', amountKobo: 100000 });
+
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body).toEqual({ success: true });
+    } finally {
+      delete process.env.META_CONVERSIONS_API_TOKEN;
+      delete process.env.NEXT_PUBLIC_META_PIXEL_ID;
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    }
   });
 });

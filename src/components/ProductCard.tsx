@@ -1,13 +1,14 @@
 'use client';
 
 import Image from 'next/image';
-import { memo } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import { Product } from '@/types';
 import { useCart } from '@/context/CartContext';
 import { useFavorites } from '@/context/FavoritesContext';
 import { useToast } from './ToastProvider';
 import { motion } from 'framer-motion';
 import { HeartIcon } from '@heroicons/react/24/solid';
+import { metaPixelEvent } from '@/lib/tracking';
 
 const CARD_INITIAL = { opacity: 0, y: 20 };
 const CARD_WHILE_IN_VIEW = { opacity: 1, y: 0 };
@@ -21,9 +22,38 @@ function ProductCard({ product, priority = false }: { product: Product; priority
   const toast = useToast();
   const quantity = cart.find((item) => item.id === product.id)?.quantity ?? 0;
   const favorited = isFavorite(product.id);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+
+  // ViewContent: fired once, the first time this card actually enters the
+  // viewport. Uses a real IntersectionObserver rather than framer-motion's
+  // whileInView, which is presentational-only and not a reliable analytics hook.
+  useEffect(() => {
+    const node = cardRef.current;
+    if (!node || typeof IntersectionObserver === 'undefined') return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          metaPixelEvent('ViewContent', {
+            value: product.price,
+            currency: 'NGN',
+            content_ids: [product.id.toString()],
+            content_type: 'product',
+          });
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.5 }
+    );
+    observer.observe(node);
+
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product.id]);
 
   return (
     <motion.div
+      ref={cardRef}
       initial={CARD_INITIAL}
       whileInView={CARD_WHILE_IN_VIEW}
       viewport={CARD_VIEWPORT}
@@ -58,7 +88,17 @@ function ProductCard({ product, priority = false }: { product: Product; priority
         <p className="text-text/70 text-[13px] mt-1 line-clamp-2">{product.description}</p>
         {quantity === 0 ? (
           <button
-            onClick={() => { addToCart(product); toast(`✨ ${product.name} added`, 'success'); }}
+            onClick={() => {
+              addToCart(product);
+              toast(`✨ ${product.name} added`, 'success');
+              metaPixelEvent('AddToCart', {
+                value: product.price,
+                currency: 'NGN',
+                content_ids: [product.id.toString()],
+                content_type: 'product',
+                contents: [{ id: product.id.toString(), quantity: 1 }],
+              });
+            }}
             className="btn-primary mt-5 w-full"
           >
             Add to Cart

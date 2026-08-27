@@ -315,6 +315,7 @@ export default function CheckoutPage() {
     metaPixelEvent('InitiateCheckout', {
       value: totalAmount,
       currency: 'NGN',
+      content_type: 'product',
       num_items: cart.length,
       content_ids: cart.map(i => i.id.toString()),
       contents: cart.map(i => ({ id: i.id.toString(), quantity: i.quantity })),

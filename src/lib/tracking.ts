@@ -19,8 +19,16 @@ export const event = (action: string, params: Record<string, unknown>) => {
   }
 };
 
-export const metaPixelEvent = (eventName: string, params?: Record<string, unknown>) => {
+export const metaPixelEvent = (
+  eventName: string,
+  params?: Record<string, unknown>,
+  eventID?: string
+) => {
   if (typeof window !== 'undefined' && window.fbq) {
-    window.fbq('track', eventName, params);
+    if (eventID) {
+      window.fbq('track', eventName, params, { eventID });
+    } else {
+      window.fbq('track', eventName, params);
+    }
   }
 };

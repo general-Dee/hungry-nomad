@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import ProductCard from './ProductCard';
@@ -7,6 +7,47 @@ import { CartProvider } from '@/context/CartContext';
 import { FavoritesProvider } from '@/context/FavoritesContext';
 import { MAX_ITEM_QUANTITY } from '@/lib/pricing';
 import { Product } from '@/types';
+
+const { mockMetaPixelEvent } = vi.hoisted(() => ({ mockMetaPixelEvent: vi.fn() }));
+vi.mock('@/lib/tracking', () => ({
+  metaPixelEvent: mockMetaPixelEvent,
+}));
+
+// vitest.setup.ts stubs a no-op global IntersectionObserver (just enough for
+// framer-motion's whileInView to mount without throwing) — its `observe()`
+// never actually invokes the callback. The ViewContent tests below need to
+// simulate a real intersection, so they install this richer fake that
+// captures the callback and lets a test fire it manually.
+class FakeIntersectionObserver implements IntersectionObserver {
+  static instances: FakeIntersectionObserver[] = [];
+  readonly root: Element | Document | null = null;
+  readonly rootMargin: string = '';
+  readonly thresholds: ReadonlyArray<number> = [];
+  callback: IntersectionObserverCallback;
+  disconnected = false;
+  observe = vi.fn();
+  unobserve = vi.fn();
+  // Mirrors real IntersectionObserver semantics (rather than being a bare
+  // vi.fn()): once disconnected, it stops delivering entries, since
+  // ProductCard's callback relies on that to only ever fire once.
+  disconnect = vi.fn(() => {
+    this.disconnected = true;
+  });
+  takeRecords(): IntersectionObserverEntry[] {
+    return [];
+  }
+  constructor(callback: IntersectionObserverCallback) {
+    this.callback = callback;
+    FakeIntersectionObserver.instances.push(this);
+  }
+  trigger(isIntersecting: boolean) {
+    if (this.disconnected) return;
+    this.callback(
+      [{ isIntersecting } as IntersectionObserverEntry],
+      this as unknown as IntersectionObserver
+    );
+  }
+}
 
 function wrapper({ children }: { children: ReactNode }) {
   return (
@@ -27,6 +68,14 @@ const product: Product = {
 };
 
 describe('ProductCard', () => {
+  beforeEach(() => {
+    mockMetaPixelEvent.mockClear();
+  });
+
+  afterEach(() => {
+    FakeIntersectionObserver.instances = [];
+  });
+
   it('shows product name, price and an "Add to Cart" button when not in the cart', () => {
     render(<ProductCard product={product} />, { wrapper });
     expect(screen.getByText('Peppered Chicken')).toBeInTheDocument();
@@ -103,5 +152,79 @@ describe('ProductCard', () => {
 
     expect(screen.getByRole('button', { name: 'Add to Cart' })).toBeInTheDocument();
     expect(screen.queryByText('1')).not.toBeInTheDocument();
+  });
+
+  it('fires an AddToCart Meta Pixel event with the product id and price when "Add to Cart" is clicked', async () => {
+    const user = userEvent.setup();
+    render(<ProductCard product={product} />, { wrapper });
+
+    await user.click(screen.getByRole('button', { name: 'Add to Cart' }));
+
+    expect(mockMetaPixelEvent).toHaveBeenCalledTimes(1);
+    expect(mockMetaPixelEvent).toHaveBeenCalledWith('AddToCart', {
+      value: product.price,
+      currency: 'NGN',
+      content_ids: [product.id.toString()],
+      content_type: 'product',
+      contents: [{ id: product.id.toString(), quantity: 1 }],
+    });
+  });
+
+  it('does not fire an AddToCart event just from rendering, only from the click', () => {
+    render(<ProductCard product={product} />, { wrapper });
+    expect(mockMetaPixelEvent).not.toHaveBeenCalled();
+  });
+
+  describe('ViewContent tracking', () => {
+    let originalIntersectionObserver: typeof window.IntersectionObserver;
+
+    beforeEach(() => {
+      originalIntersectionObserver = window.IntersectionObserver;
+      FakeIntersectionObserver.instances = [];
+      window.IntersectionObserver = FakeIntersectionObserver as unknown as typeof IntersectionObserver;
+      global.IntersectionObserver = FakeIntersectionObserver as unknown as typeof IntersectionObserver;
+    });
+
+    afterEach(() => {
+      window.IntersectionObserver = originalIntersectionObserver;
+      global.IntersectionObserver = originalIntersectionObserver;
+    });
+
+    it('fires a ViewContent Meta Pixel event and disconnects once the card intersects the viewport', () => {
+      render(<ProductCard product={product} />, { wrapper });
+      expect(FakeIntersectionObserver.instances).toHaveLength(1);
+      const observer = FakeIntersectionObserver.instances[0];
+
+      act(() => observer.trigger(true));
+
+      expect(mockMetaPixelEvent).toHaveBeenCalledWith('ViewContent', {
+        value: product.price,
+        currency: 'NGN',
+        content_ids: [product.id.toString()],
+        content_type: 'product',
+      });
+      expect(observer.disconnect).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not fire ViewContent while the card has not intersected the viewport', () => {
+      render(<ProductCard product={product} />, { wrapper });
+      const observer = FakeIntersectionObserver.instances[0];
+
+      act(() => observer.trigger(false));
+
+      expect(mockMetaPixelEvent).not.toHaveBeenCalledWith('ViewContent', expect.anything());
+      expect(observer.disconnect).not.toHaveBeenCalled();
+    });
+
+    it('fires ViewContent only once even if the intersection callback runs again before disconnect takes effect', () => {
+      render(<ProductCard product={product} />, { wrapper });
+      const observer = FakeIntersectionObserver.instances[0];
+
+      act(() => observer.trigger(true));
+      act(() => observer.trigger(true));
+
+      const viewContentCalls = mockMetaPixelEvent.mock.calls.filter(([eventName]) => eventName === 'ViewContent');
+      expect(viewContentCalls).toHaveLength(1);
+    });
   });
 });

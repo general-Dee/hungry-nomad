@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { sendOrderConfirmationEmail, sendStaffOrderAlertEmail } from '@/lib/email';
 import { getProductName } from '@/lib/orderItems';
+import { sendMetaPurchaseEvent } from '@/lib/metaCapi';
 
 interface PaystackCustomField {
   display_name?: string;
@@ -155,11 +156,28 @@ export async function confirmOrderPaid({
     price_at_time: item.price_at_time,
   }));
 
-  // Best-effort notifications — a failure here shouldn't fail the payment confirmation.
-  await Promise.all([
+  // Best-effort notifications — a failure here shouldn't fail the payment
+  // confirmation. Each callee already guards against throwing internally,
+  // but that's an unenforced cross-file contract; wrap this in its own
+  // try/catch (and log via allSettled) so a slip-through rejection from any
+  // one of them can never prevent this function from returning success once
+  // the order has already been committed to 'paid' above.
+  const results = await Promise.allSettled([
     sendOrderConfirmationEmail(order, emailItems),
     sendStaffOrderAlertEmail(order, emailItems),
+    sendMetaPurchaseEvent({
+      eventId: reference,
+      value: order.total_amount,
+      contentIds: ((items as any[]) || []).map((item) => String(item.product_id)),
+      email: order.customer_email,
+      phone: order.customer_phone,
+    }),
   ]);
+  for (const result of results) {
+    if (result.status === 'rejected') {
+      console.error('Order confirmation side effect failed:', result.reason);
+    }
+  }
 
   return NextResponse.json({ success: true });
 }
