@@ -152,7 +152,7 @@ describe('confirmOrderPaid', () => {
   it('returns 404 when the order is not found', async () => {
     setOrderResult({ data: null, error: { message: 'not found' } });
 
-    const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_1', amountKobo: 100000 });
+    const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_1', amountKobo: 100000, currency: 'NGN' });
 
     expect(res.status).toBe(404);
     const body = await res.json();
@@ -178,7 +178,7 @@ describe('confirmOrderPaid', () => {
       throw new Error(`Unexpected table: ${table}`);
     });
 
-    const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_1', amountKobo: 100000 });
+    const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_1', amountKobo: 100000, currency: 'NGN' });
 
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -202,7 +202,7 @@ describe('confirmOrderPaid', () => {
       throw new Error(`Unexpected table: ${table}`);
     });
 
-    const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_1', amountKobo: 99999 });
+    const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_1', amountKobo: 99999, currency: 'NGN' });
 
     expect(res.status).toBe(400);
     const body = await res.json();
@@ -212,13 +212,57 @@ describe('confirmOrderPaid', () => {
     expect(mockSendStaffOrderAlertEmail).not.toHaveBeenCalled();
   });
 
+  it('rejects with 400 when currency does not match NGN, without updating or emailing', async () => {
+    setOrderResult({ data: { total_amount: 1000, status: 'pending' }, error: null });
+    const updateSpy = vi.fn();
+    mockAdminFrom.mockImplementationOnce((table: string) => {
+      if (table === 'orders') {
+        return {
+          select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: { total_amount: 1000, status: 'pending' }, error: null }) }) }),
+          update: updateSpy,
+        };
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_1', amountKobo: 100000, currency: 'USD' });
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body).toEqual({ success: false, error: 'Payment currency does not match expected currency' });
+    expect(updateSpy).not.toHaveBeenCalled();
+    expect(mockSendOrderConfirmationEmail).not.toHaveBeenCalled();
+    expect(mockSendStaffOrderAlertEmail).not.toHaveBeenCalled();
+  });
+
+  it('rejects with 400 when currency is missing from the Paystack response, without updating or emailing', async () => {
+    setOrderResult({ data: { total_amount: 1000, status: 'pending' }, error: null });
+    const updateSpy = vi.fn();
+    mockAdminFrom.mockImplementationOnce((table: string) => {
+      if (table === 'orders') {
+        return {
+          select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: { total_amount: 1000, status: 'pending' }, error: null }) }) }),
+          update: updateSpy,
+        };
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_1', amountKobo: 100000, currency: undefined });
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body).toEqual({ success: false, error: 'Payment currency does not match expected currency' });
+    expect(updateSpy).not.toHaveBeenCalled();
+  });
+
   it('does not false-positive a mismatch on fractional-kobo totals when the true charged amount is correct', async () => {
     // 1234.005 * 100 === 123400.50000000001 in raw float math (not exactly
     // .5), so Math.round brings this to 123401 — the genuinely charged kobo
     // amount should match that rounded value, not be flagged as a mismatch.
     setOrderResult({ data: { total_amount: 1234.005, status: 'pending' }, error: null });
 
-    const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_1', amountKobo: 123401 });
+    const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_1', amountKobo: 123401, currency: 'NGN' });
 
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -228,7 +272,7 @@ describe('confirmOrderPaid', () => {
   it('treats a TOCTOU update returning {data: null, error: null} as already handled (no emails)', async () => {
     setUpdateResult({ data: null, error: null });
 
-    const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_1', amountKobo: 100000 });
+    const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_1', amountKobo: 100000, currency: 'NGN' });
 
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -240,7 +284,7 @@ describe('confirmOrderPaid', () => {
   it('treats a TOCTOU update returning PGRST116 as already handled (no emails)', async () => {
     setUpdateResult({ data: null, error: { code: 'PGRST116', message: 'no rows returned' } });
 
-    const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_1', amountKobo: 100000 });
+    const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_1', amountKobo: 100000, currency: 'NGN' });
 
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -255,7 +299,7 @@ describe('confirmOrderPaid', () => {
       error: { code: 'XX000', message: 'connection to database lost: super secret internal detail' },
     });
 
-    const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_1', amountKobo: 100000 });
+    const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_1', amountKobo: 100000, currency: 'NGN' });
 
     expect(res.status).toBe(500);
     const body = await res.json();
@@ -274,7 +318,7 @@ describe('confirmOrderPaid', () => {
       error: null,
     });
 
-    const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_1', amountKobo: 100000 });
+    const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_1', amountKobo: 100000, currency: 'NGN' });
 
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -297,7 +341,7 @@ describe('confirmOrderPaid', () => {
   it('still sends emails and returns success when the order_items fetch errors (logged, not fatal)', async () => {
     setItemsResult({ data: null, error: { message: 'order_items fetch exploded' } });
 
-    const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_1', amountKobo: 100000 });
+    const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_1', amountKobo: 100000, currency: 'NGN' });
 
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -331,7 +375,7 @@ describe('confirmOrderPaid', () => {
       error: null,
     });
 
-    const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_meta_1', amountKobo: 100000 });
+    const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_meta_1', amountKobo: 100000, currency: 'NGN' });
 
     expect(res.status).toBe(200);
     expect(mockSendMetaPurchaseEvent).toHaveBeenCalledTimes(1);
@@ -360,7 +404,7 @@ describe('confirmOrderPaid', () => {
     });
 
     try {
-      const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_fbc_1', amountKobo: 100000 });
+      const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_fbc_1', amountKobo: 100000, currency: 'NGN' });
 
       expect(res.status).toBe(200);
       expect(mockSendMetaPurchaseEvent).toHaveBeenCalledWith(
@@ -383,7 +427,7 @@ describe('confirmOrderPaid', () => {
       error: null,
     });
 
-    const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_fbc_2', amountKobo: 100000 });
+    const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_fbc_2', amountKobo: 100000, currency: 'NGN' });
 
     expect(res.status).toBe(200);
     expect(mockSendMetaPurchaseEvent).toHaveBeenCalledWith(
@@ -395,7 +439,7 @@ describe('confirmOrderPaid', () => {
     mockSendMetaPurchaseEvent.mockRejectedValueOnce(new Error('unexpected throw'));
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-    const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_1', amountKobo: 100000 });
+    const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_1', amountKobo: 100000, currency: 'NGN' });
 
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -424,7 +468,7 @@ describe('confirmOrderPaid', () => {
     mockSendMetaPurchaseEvent.mockImplementationOnce(real.sendMetaPurchaseEvent);
 
     try {
-      const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_1', amountKobo: 100000 });
+      const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_1', amountKobo: 100000, currency: 'NGN' });
 
       expect(res.status).toBe(200);
       const body = await res.json();

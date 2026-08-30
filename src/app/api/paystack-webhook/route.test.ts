@@ -77,6 +77,7 @@ const chargeSuccessPayload = {
     status: 'success',
     reference: 'ref_abc',
     amount: 100000,
+    currency: 'NGN',
     metadata: { custom_fields: [{ variable_name: 'order_id', value: 5 }] },
   },
 };
@@ -113,6 +114,27 @@ describe('POST /api/paystack-webhook', () => {
     const body = await res.json();
     expect(body.success).toBe(true);
     expect(mockAdminFrom).toHaveBeenCalledWith('orders');
+  });
+
+  it('rejects a validly-signed charge.success event whose currency is not NGN', async () => {
+    const payload = {
+      event: 'charge.success',
+      data: {
+        status: 'success',
+        reference: 'ref_abc',
+        amount: 100000,
+        currency: 'USD',
+        metadata: { custom_fields: [{ variable_name: 'order_id', value: 5 }] },
+      },
+    };
+    const body = JSON.stringify(payload);
+    const signature = sign(body, SECRET);
+
+    const res = await POST(makeRequest(body, signature));
+
+    expect(res.status).toBe(400);
+    const responseBody = await res.json();
+    expect(responseBody).toEqual({ success: false, error: 'Payment currency does not match expected currency' });
   });
 
   it('rejects a validly-signed payload missing the order_id metadata', async () => {

@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import * as Sentry from '@sentry/nextjs';
 import { confirmOrderPaid, extractOrderIdFromMetadata } from '@/lib/paystackPayment';
 import { paymentVerifyRatelimit, getClientIp } from '@/lib/ratelimit';
+
+// Hard timeout for the outbound call to Paystack's verify endpoint below,
+// matching the AbortController pattern used elsewhere for outbound calls
+// (src/lib/metaCapi.ts, src/lib/fetchWithRetry.ts) so a hung Paystack
+// response fails fast with a proper error response instead of dying on the
+// platform's own function timeout.
+const PAYSTACK_VERIFY_TIMEOUT_MS = 9000;
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,11 +32,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify with Paystack API
-    const response = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
-      headers: {
-        Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
-      },
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), PAYSTACK_VERIFY_TIMEOUT_MS);
+    let response: Response;
+    try {
+      response = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+        },
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     const data = await response.json();
 
@@ -74,9 +90,11 @@ export async function POST(request: NextRequest) {
       orderId: order_id,
       reference,
       amountKobo: data.data.amount,
+      currency: data.data.currency,
     });
   } catch (error) {
     console.error('Verification error:', error);
+    Sentry.captureException(error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

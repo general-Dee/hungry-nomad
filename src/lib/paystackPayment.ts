@@ -1,8 +1,13 @@
 import { NextResponse } from 'next/server';
+import * as Sentry from '@sentry/nextjs';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { sendOrderConfirmationEmail, sendStaffOrderAlertEmail } from '@/lib/email';
 import { getProductName } from '@/lib/orderItems';
 import { sendMetaPurchaseEvent } from '@/lib/metaCapi';
+
+// The only currency the storefront ever charges in — hardcoded client-side
+// in checkout/page.tsx's PaystackPop.setup({ currency: 'NGN', ... }).
+const EXPECTED_CURRENCY = 'NGN';
 
 interface PaystackCustomField {
   display_name?: string;
@@ -52,10 +57,12 @@ export async function confirmOrderPaid({
   orderId,
   reference,
   amountKobo,
+  currency,
 }: {
   orderId: string | number;
   reference: string;
   amountKobo: number;
+  currency: string | undefined;
 }): Promise<NextResponse> {
   const { data: existingOrder, error: fetchOrderError } = await supabaseAdmin
     .from('orders')
@@ -75,6 +82,24 @@ export async function confirmOrderPaid({
   // or re-run the update.
   if (existingOrder.status === 'paid') {
     return NextResponse.json({ success: true });
+  }
+
+  // Paystack's currency is also part of the ground truth for what was
+  // actually charged — the numeric amount alone is meaningless without it
+  // (e.g. a charge for the same numeric amount in a different currency would
+  // be a very different real-world value). Every charge this storefront
+  // initiates is in NGN (see checkout/page.tsx's PaystackPop.setup), so
+  // reject anything else before marking the order paid.
+  if (currency !== EXPECTED_CURRENCY) {
+    console.error('Payment currency mismatch', {
+      order_id: orderId,
+      expected: EXPECTED_CURRENCY,
+      received: currency,
+    });
+    return NextResponse.json(
+      { success: false, error: 'Payment currency does not match expected currency' },
+      { status: 400 }
+    );
   }
 
   // Paystack's amount is the ground truth for what was actually charged —
@@ -135,6 +160,10 @@ export async function confirmOrderPaid({
       return NextResponse.json({ success: true });
     }
     console.error('Order update error:', updateError);
+    Sentry.captureException(updateError, {
+      tags: { order_update_error_code: updateError.code ?? 'unknown' },
+      extra: { order_id: orderId, reference },
+    });
     return NextResponse.json(
       { error: 'Failed to update order' },
       { status: 500 }
@@ -148,6 +177,7 @@ export async function confirmOrderPaid({
 
   if (itemsError) {
     console.error('Order items fetch error:', itemsError);
+    Sentry.captureException(itemsError, { extra: { order_id: orderId, reference } });
   }
 
   const emailItems = ((items as any[]) || []).map((item) => ({
@@ -194,6 +224,7 @@ export async function confirmOrderPaid({
   for (const result of results) {
     if (result.status === 'rejected') {
       console.error('Order confirmation side effect failed:', result.reason);
+      Sentry.captureException(result.reason, { extra: { order_id: orderId, reference } });
     }
   }
 

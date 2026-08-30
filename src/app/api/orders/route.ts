@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import * as Sentry from '@sentry/nextjs';
 import { supabase } from '@/lib/supabaseClient';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { orderCreateRatelimit, getClientIp } from '@/lib/ratelimit';
@@ -169,7 +170,9 @@ export async function POST(request: NextRequest) {
       ]);
       products = productsResult;
       zones = deliveryZonesResult.zones;
-    } catch {
+    } catch (error) {
+      console.error('Order creation: products/delivery-zones lookup failed:', error);
+      Sentry.captureException(error);
       return NextResponse.json(
         { error: 'Could not verify order details. Please try again shortly.' },
         { status: 503 }
@@ -217,6 +220,9 @@ export async function POST(request: NextRequest) {
 
     if (orderError) {
       console.error('Order creation error:', orderError);
+      Sentry.captureException(orderError, {
+        tags: { order_create_error_code: orderError.code ?? 'unknown' },
+      });
       return NextResponse.json({ error: 'Failed to create order' }, { status: 500 });
     }
 
@@ -231,6 +237,10 @@ export async function POST(request: NextRequest) {
 
     if (itemsError) {
       console.error('Order items error:', itemsError);
+      Sentry.captureException(itemsError, {
+        tags: { order_items_error_code: itemsError.code ?? 'unknown' },
+        extra: { order_id: order.id },
+      });
       await supabaseAdmin.from('orders').delete().eq('id', order.id);
       return NextResponse.json({ error: 'Failed to create order items' }, { status: 500 });
     }
@@ -238,6 +248,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, order });
   } catch (error) {
     console.error('API error:', error);
+    Sentry.captureException(error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -111,6 +111,7 @@ describe('POST /api/verify-payment', () => {
     mockPaystackVerify({
       status: 'success',
       amount: 100000,
+      currency: 'NGN',
       metadata: { custom_fields: [{ variable_name: 'order_id', value: 5 }] },
     });
 
@@ -120,5 +121,20 @@ describe('POST /api/verify-payment', () => {
     const body = await res.json();
     expect(body.success).toBe(true);
     expect(mockAdminFrom).toHaveBeenCalledWith('orders');
+  });
+
+  it('rejects when the verified charge currency is not NGN', async () => {
+    mockPaystackVerify({
+      status: 'success',
+      amount: 100000,
+      currency: 'USD',
+      metadata: { custom_fields: [{ variable_name: 'order_id', value: 5 }] },
+    });
+
+    const res = await POST(makeRequest({ reference: 'ref_123', order_id: '5' }));
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body).toEqual({ success: false, error: 'Payment currency does not match expected currency' });
   });
 });

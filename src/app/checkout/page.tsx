@@ -271,6 +271,7 @@ export default function CheckoutPage() {
       launchPaystack(order);
     } catch (err: unknown) {
       console.error('Payment error:', err);
+      Sentry.captureException(err);
       setError(err instanceof Error ? err.message : 'Something went wrong');
     }
   };
@@ -346,6 +347,7 @@ export default function CheckoutPage() {
       launchPaystack(order);
     } catch (err: unknown) {
       console.error('Payment error:', err);
+      Sentry.captureException(err);
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
       setLoading(false);
