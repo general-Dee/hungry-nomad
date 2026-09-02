@@ -1,10 +1,10 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import * as Sentry from '@sentry/nextjs';
 import { supabase } from '@/lib/supabaseClient';
 import { withRetry } from '@/lib/fetchWithRetry';
 import ProductCard from '@/components/ProductCard';
 import OpenStatusBadge from '@/components/OpenStatusBadge';
+import HeroSlider from '@/components/HeroSlider';
 
 async function getFeatured() {
   try {
@@ -67,7 +67,6 @@ function IceCreamIcon({ className = '' }: { className?: string }) {
 
 export default async function Home() {
   const featured = await getFeatured();
-  const heroImageUrl = featured[0]?.image_url;
 
   return (
     <div className="overflow-hidden">
@@ -107,23 +106,10 @@ export default async function Home() {
               </div>
             </div>
 
-            {/* Right column: hero image */}
+            {/* Right column: hero image slider */}
             <div className="relative">
               <div className="absolute -top-10 -right-10 w-[400px] h-[400px] rounded-full bg-accent2-200 -z-10" aria-hidden="true" />
-              <div className="relative aspect-[4/5] w-full overflow-hidden rounded-[56px]">
-                {heroImageUrl ? (
-                  <Image
-                    src={heroImageUrl}
-                    alt=""
-                    fill
-                    priority
-                    sizes="(max-width: 1024px) 100vw, 45vw"
-                    className="object-cover saturate-[0.6] contrast-[0.85] brightness-110 opacity-95"
-                  />
-                ) : (
-                  <div className="h-full w-full bg-surface" />
-                )}
-              </div>
+              <HeroSlider slides={featured.map((p) => ({ src: p.image_url, alt: p.name }))} />
             </div>
           </div>
         </div>
