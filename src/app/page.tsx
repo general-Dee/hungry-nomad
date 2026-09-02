@@ -10,7 +10,7 @@ async function getFeatured() {
   try {
     const data = await withRetry(
       async (signal) => {
-        const { data, error } = await supabase.from('products').select('*').limit(3).abortSignal(signal);
+        const { data, error } = await supabase.from('products').select('*').limit(4).abortSignal(signal);
         if (error) throw error;
         return data;
       },
@@ -170,7 +170,7 @@ export default async function Home() {
           <div className="container mx-auto px-4">
             <h2 className="text-4xl text-center mb-4">Signature Dishes</h2>
             <p className="text-center text-neutral-500 mb-12">Chef’s selection of our most loved meals</p>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
               {featured.map((product, i) => <ProductCard key={product.id} product={product} priority={i === 0} />)}
             </div>
           </div>

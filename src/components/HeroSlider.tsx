@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-const AUTO_ADVANCE_MS = 4500;
+const AUTO_ADVANCE_MS = 3000;
 const RESUME_DELAY_MS = 4000;
 
 interface HeroSlide {
