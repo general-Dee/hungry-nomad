@@ -3,7 +3,8 @@ import * as Sentry from '@sentry/nextjs';
 import { supabase } from '@/lib/supabaseClient';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { orderCreateRatelimit, getClientIp } from '@/lib/ratelimit';
-import { isWithinBusinessHours, BUSINESS_HOURS_LABEL } from '@/lib/businessHours';
+import { isWithinBusinessHours, BUSINESS_HOURS_LABEL, type StoreHours } from '@/lib/businessHours';
+import { getStoreHours } from '@/lib/storeSettings';
 import { computeOrderTotal, MAX_ITEM_QUANTITY } from '@/lib/pricing';
 import { getDeliveryZones } from '@/lib/deliveryZones';
 import { withRetry } from '@/lib/fetchWithRetry';
@@ -21,6 +22,7 @@ interface OrderRequestBody {
   utm_content?: string;
   utm_term?: string;
   fbclid?: string;
+  customer_note?: string;
 }
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -32,9 +34,10 @@ const ATTRIBUTION_FIELDS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_con
 
 export async function POST(request: NextRequest) {
   try {
-    if (!isWithinBusinessHours()) {
+    const storeHours = await getStoreHours();
+    if (!isWithinBusinessHours(new Date(), storeHours)) {
       return NextResponse.json(
-        { error: `Sorry, we're closed right now. Orders can be placed between ${BUSINESS_HOURS_LABEL}.` },
+        { error: `Sorry, we're closed right now. Orders can be placed between ${storeHours.label || BUSINESS_HOURS_LABEL}.` },
         { status: 403 }
       );
     }
@@ -68,6 +71,7 @@ export async function POST(request: NextRequest) {
       utm_content,
       utm_term,
       fbclid,
+      customer_note,
     } = body;
 
     if (
@@ -158,7 +162,7 @@ export async function POST(request: NextRequest) {
           async (signal) => {
             const { data, error } = await supabase
               .from('products')
-              .select('id, price, category')
+              .select('id, price, category, is_available')
               .in('id', productIds)
               .abortSignal(signal);
             if (error) throw error;
@@ -182,6 +186,12 @@ export async function POST(request: NextRequest) {
     if (!products || products.length !== productIds.length) {
       return NextResponse.json({ error: 'One or more items are unavailable' }, { status: 400 });
     }
+
+    if (products.some((p) => p.is_available === false)) {
+      return NextResponse.json({ error: 'One or more items are sold out' }, { status: 400 });
+    }
+
+    const note = typeof customer_note === 'string' ? customer_note.trim().slice(0, 300) : '';
 
     const zone = zones.find((z) => z.lga_name === delivery_lga);
     if (!zone) {
@@ -213,6 +223,7 @@ export async function POST(request: NextRequest) {
         delivery_fee: deliveryFee,
         total_amount,
         status: 'pending',
+        ...(note ? { customer_note: note } : {}),
         ...attributionData,
       })
       .select()

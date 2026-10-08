@@ -50,6 +50,7 @@ export default function CheckoutPage() {
     customer_phone: '',
     customer_address: '',
     delivery_lga: '',
+    customer_note: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -212,6 +213,7 @@ export default function CheckoutPage() {
       customer_phone: formData.customer_phone,
       customer_address: formData.customer_address,
       delivery_lga: formData.delivery_lga,
+      customer_note: formData.customer_note,
       items: cart.map(item => ({
         product_id: item.id,
         quantity: item.quantity,
@@ -515,6 +517,19 @@ export default function CheckoutPage() {
                   <label className="mb-1 block text-sm font-medium text-text/80">Local Government Area *</label>
                   {loadingZones ? (
                     <div className="py-2 text-neutral-500">Loading zones...</div>
+                <div>
+                  <label htmlFor="customer_note" className="mb-1 block text-sm font-medium text-text/80">Note for the kitchen (optional)</label>
+                  <textarea
+                    id="customer_note"
+                    name="customer_note"
+                    value={formData.customer_note}
+                    onChange={handleInputChange}
+                    maxLength={300}
+                    rows={2}
+                    placeholder="No pepper, extra napkins, call when outside…"
+                    className="input-field w-full"
+                  />
+                </div>
                   ) : zoneLoadError ? (
                     <div className="flex items-center justify-between gap-3 rounded-lg bg-accent-100 p-3 text-sm text-accent-800">
                       <span>{zoneLoadError}</span>

@@ -10,13 +10,13 @@ async function getFeatured() {
   try {
     const data = await withRetry(
       async (signal) => {
-        const { data, error } = await supabase.from('products').select('*').limit(4).abortSignal(signal);
+        const { data, error } = await supabase.from('products').select('*').limit(8).abortSignal(signal);
         if (error) throw error;
         return data;
       },
       { attempts: 2, timeoutMs: 6000 }
     );
-    return data || [];
+    return (data || []).filter((p) => p.is_available !== false).slice(0, 4);
   } catch (error) {
     Sentry.captureException(error);
     throw error;
@@ -160,6 +160,13 @@ export default async function Home() {
             </div>
             <h3 className="text-xl">Ice Cream</h3>
             <p className="text-neutral-500 mt-2">Creamy, refreshing desserts for every craving.</p>
+          </Link>
+          <Link
+            href="/menu?category=beverages"
+            className="card-glass p-6 text-center group transition-all hover:shadow-xl hover:-translate-y-1 sm:col-span-2 lg:col-span-4"
+          >
+            <h3 className="text-xl">Beverages</h3>
+            <p className="text-neutral-500 mt-2">Drinks to go with the meal.</p>
           </Link>
         </div>
       </section>

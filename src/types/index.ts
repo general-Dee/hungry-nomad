@@ -8,6 +8,7 @@ export interface Product {
   category: ProductCategory;
   subcategory?: string;
   image_url: string;
+  is_available?: boolean;
   created_at: string;
 }
 
@@ -23,6 +24,7 @@ export interface Order {
   customer_address: string;
   delivery_lga: string;
   delivery_fee: number;
+  customer_note?: string | null;
   total_amount: number;
   payment_reference: string | null;
   status: 'pending' | 'paid' | 'failed' | 'delivered';
