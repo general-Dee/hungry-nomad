@@ -5,6 +5,7 @@ import { sendOrderConfirmationEmail, sendStaffOrderAlertEmail } from '@/lib/emai
 import { getProductName } from '@/lib/orderItems';
 import { sendMetaPurchaseEvent } from '@/lib/metaCapi';
 import { sendCustomerPaidSms } from '@/lib/sms';
+import { sendStaffOrderWhatsApp } from '@/lib/whatsapp';
 
 // The only currency the storefront ever charges in — hardcoded client-side
 // in checkout/page.tsx's PaystackPop.setup({ currency: 'NGN', ... }).
@@ -222,6 +223,7 @@ export async function confirmOrderPaid({
       fbc,
     }),
     sendCustomerPaidSms(order),
+    sendStaffOrderWhatsApp(order, emailItems),
   ]);
   for (const result of results) {
     if (result.status === 'rejected') {
