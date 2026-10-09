@@ -3,7 +3,7 @@ import * as Sentry from '@sentry/nextjs';
 import { supabase } from '@/lib/supabaseClient';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { orderCreateRatelimit, getClientIp } from '@/lib/ratelimit';
-import { isWithinBusinessHours, BUSINESS_HOURS_LABEL, type StoreHours } from '@/lib/businessHours';
+import { isWithinBusinessHours, BUSINESS_HOURS_LABEL } from '@/lib/businessHours';
 import { getStoreHours } from '@/lib/storeSettings';
 import { computeOrderTotal, MAX_ITEM_QUANTITY } from '@/lib/pricing';
 import { getDeliveryZones } from '@/lib/deliveryZones';
