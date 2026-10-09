@@ -19,6 +19,8 @@ async function getFeatured() {
     );
     return (data || []).filter((p) => p.is_available !== false).slice(0, 4);
   } catch (error) {
+    const placeholder = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').includes('example.supabase.co');
+    if (placeholder) return [];
     Sentry.captureException(error);
     throw error;
   }
