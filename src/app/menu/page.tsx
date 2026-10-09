@@ -20,12 +20,10 @@ async function getProducts(): Promise<Product[]> {
       { attempts: 2, timeoutMs: 6000 }
     );
   } catch (error) {
-    // Throw (after logging + Sentry capture) instead of returning [] --
-    // this route is ISR-cached (`revalidate = 60`), so silently "succeeding"
-    // with an empty list would get cached as the live menu until the next
-    // regeneration. Throwing lets Next.js keep serving the last known-good
-    // cached page on a failed background regen, and surfaces menu/error.tsx
-    // (with a visible retry) instead of a misleading "no dishes match".
+    // CI builds use a placeholder Supabase URL and cannot prerender the menu.
+    // A live failed regeneration should still throw so Next keeps the last good page.
+    const placeholder = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').includes('example.supabase.co');
+    if (placeholder) return [];
     console.error('Failed to fetch products:', error);
     Sentry.captureException(error);
     throw error;
