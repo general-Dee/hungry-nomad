@@ -1,32 +1,32 @@
-# KadunaEats Restaurant Web App
+# Hungry Nomad
 
-A full-stack restaurant ordering web application for a restaurant in Kaduna, Nigeria, specializing in fast food, regular Nigerian dishes, and Chinese cuisine.
+Food ordering web app for Hungry Nomad in Kaduna. Customers browse the menu, check out with Paystack, and track an order by id and phone. Staff work happens in the separate hungry-nomad-admin app.
 
-## Tech Stack
+## Tech stack
 
-- **Framework**: Next.js 14 (Webpack)
-- **Styling**: Tailwind CSS v3
-- **State Management**: React Context + useReducer
-- **Backend**: Supabase (PostgreSQL)
-- **Payments**: Paystack
-- **Language**: TypeScript
-- **Deployment**: Vercel
+- Next.js 14 (App Router) and TypeScript
+- Tailwind CSS
+- Supabase
+- Paystack
+- Resend, optional Termii SMS
+- Vercel
 
 ## Features
 
-- Browse menu with categories (Fast Food, Regular Dishes, Chinese Food)
-- Add items to cart, update quantities, remove items
-- Secure checkout with customer information
-- Paystack payment integration
-- Order creation and verification
-- Responsive design for mobile and desktop
+- Menu categories: fast food, regular dishes, Chinese, ice cream, beverages
+- Cart, delivery zones, server-computed totals
+- Paystack payment with webhook and return-page verification
+- Sold-out items (`products.is_available`) and a kitchen note on the order
+- Opening hours read from `store_settings`, with an immediate closed override
 
-## Setup Instructions
-
-### 1. Clone and Install Dependencies
+## Setup
 
 ```bash
-git clone <repository-url>
-cd restaurant-app
+git clone https://github.com/general-Dee/hungry-nomad.git
+cd hungry-nomad
 npm install
+cp .env.example .env.local
+npm run dev
 ```
+
+Paste `docs/sql` and the admin repo migrations into the Supabase SQL editor before expecting sold-out, notes, or editable hours to work.

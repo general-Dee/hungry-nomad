@@ -21,6 +21,7 @@ function ProductCard({ product, priority = false }: { product: Product; priority
   const { isFavorite, toggleFavorite } = useFavorites();
   const toast = useToast();
   const quantity = cart.find((item) => item.id === product.id)?.quantity ?? 0;
+  const soldOut = product.is_available === false;
   const favorited = isFavorite(product.id);
   const cardRef = useRef<HTMLDivElement | null>(null);
 
@@ -86,7 +87,9 @@ function ProductCard({ product, priority = false }: { product: Product; priority
       <div className="p-5">
         <h3 className="font-display text-[19px] text-text">{product.name}</h3>
         <p className="text-text/70 text-[13px] mt-1 line-clamp-2">{product.description}</p>
-        {quantity === 0 ? (
+        {soldOut ? (
+          <button type="button" disabled className="btn-primary mt-5 w-full opacity-50 cursor-not-allowed">Sold out</button>
+        ) : quantity === 0 ? (
           <button
             onClick={() => {
               addToCart(product);
