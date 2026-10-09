@@ -6,6 +6,7 @@ import { orderCreateRatelimit, getClientIp } from '@/lib/ratelimit';
 import { isWithinBusinessHours, BUSINESS_HOURS_LABEL } from '@/lib/businessHours';
 import { getStoreHours } from '@/lib/storeSettings';
 import { computeOrderTotal, MAX_ITEM_QUANTITY } from '@/lib/pricing';
+import { applyCoupon } from '@/lib/coupons';
 import { getDeliveryZones } from '@/lib/deliveryZones';
 import { withRetry } from '@/lib/fetchWithRetry';
 
@@ -23,6 +24,7 @@ interface OrderRequestBody {
   utm_term?: string;
   fbclid?: string;
   customer_note?: string;
+  coupon_code?: string;
 }
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -72,6 +74,7 @@ export async function POST(request: NextRequest) {
       utm_term,
       fbclid,
       customer_note,
+      coupon_code,
     } = body;
 
     if (
@@ -210,7 +213,13 @@ export async function POST(request: NextRequest) {
     });
 
     const deliveryFee = zone.fee;
-    const { total: total_amount } = computeOrderTotal(orderItems, deliveryFee);
+    const { subtotal, takeawayFee, total } = computeOrderTotal(orderItems, deliveryFee);
+    const coupon = await applyCoupon(coupon_code, subtotal);
+    if ('error' in coupon) {
+      return NextResponse.json({ error: coupon.error }, { status: 400 });
+    }
+    const discount_amount = coupon.discountAmount;
+    const total_amount = total - discount_amount;
 
     const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
@@ -224,6 +233,7 @@ export async function POST(request: NextRequest) {
         total_amount,
         status: 'pending',
         ...(note ? { customer_note: note } : {}),
+        ...(coupon.code ? { coupon_code: coupon.code, discount_amount } : {}),
         ...attributionData,
       })
       .select()
