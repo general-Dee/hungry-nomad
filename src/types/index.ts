@@ -1,4 +1,4 @@
-export type ProductCategory = 'fast_food' | 'regular' | 'chinese' | 'icecream' | 'beverages';
+export type ProductCategory = 'fast_food' | 'regular' | 'chinese' | 'icecream' | 'beverages' | 'weekend';
 
 export interface Product {
   id: number;

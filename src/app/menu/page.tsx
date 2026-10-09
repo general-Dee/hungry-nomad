@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import * as Sentry from '@sentry/nextjs';
 import MenuContent from './MenuContent';
+import WeekendPackages from '@/components/WeekendPackages';
 import { supabase } from '@/lib/supabaseClient';
 import { withRetry } from '@/lib/fetchWithRetry';
 import { Product } from '@/types';
@@ -31,6 +32,7 @@ async function getProducts(): Promise<Product[]> {
   }
 
   return (data || []).reduce<Product[]>((acc, curr) => {
+    if (curr.category === 'weekend') return acc;
     if (!acc.some((p) => p.id === curr.id)) acc.push(curr);
     return acc;
   }, []);
@@ -41,6 +43,7 @@ export default async function MenuPage() {
 
   return (
     <Suspense fallback={<div className="container mx-auto px-4 py-12 text-center">Loading menu...</div>}>
+      <WeekendPackages />
       <MenuContent initialProducts={products} />
     </Suspense>
   );

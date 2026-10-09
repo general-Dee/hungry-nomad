@@ -5,6 +5,7 @@ import { withRetry } from '@/lib/fetchWithRetry';
 import ProductCard from '@/components/ProductCard';
 import OpenStatusBadge from '@/components/OpenStatusBadge';
 import HeroSlider from '@/components/HeroSlider';
+import WeekendPackages from '@/components/WeekendPackages';
 
 async function getFeatured() {
   try {
@@ -170,6 +171,8 @@ export default async function Home() {
           </Link>
         </div>
       </section>
+
+      <WeekendPackages />
 
       {/* Featured dishes section */}
       {featured.length > 0 && (
