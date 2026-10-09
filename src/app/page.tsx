@@ -4,7 +4,6 @@ import { supabase } from '@/lib/supabaseClient';
 import { withRetry } from '@/lib/fetchWithRetry';
 import ProductCard from '@/components/ProductCard';
 import OpenStatusBadge from '@/components/OpenStatusBadge';
-import HeroSlider from '@/components/HeroSlider';
 import WeekendPackages from '@/components/WeekendPackages';
 
 async function getFeatured() {
@@ -74,45 +73,40 @@ export default async function Home() {
   return (
     <div className="overflow-hidden">
       {/* ========== HERO SECTION ========== */}
-      <section className="relative">
-        <div className="container mx-auto px-4 py-16 lg:py-24">
-          <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-12 items-center">
-            {/* Left column */}
+      <section className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(232,93,4,0.16),_transparent_42%),linear-gradient(160deg,_#fffaf5_0%,_#f4efe8_55%,_#efe4d4_100%)]" aria-hidden="true" />
+        <div className="container relative mx-auto px-4 py-16 lg:py-24">
+          <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-[1.15fr_0.85fr]">
             <div>
-              <p className="text-[13px] uppercase tracking-wide font-semibold text-accent-700">
-                Kaduna&apos;s own
-              </p>
-              <h1
-                className="font-display text-text mt-3"
-                style={{ fontSize: 'clamp(38px,5vw,60px)', lineHeight: 1.05, maxWidth: '11ch' }}
-              >
+              <p className="text-[13px] font-semibold uppercase tracking-[0.22em] text-accent-700">Kaduna kitchen</p>
+              <h1 className="mt-4 max-w-[12ch] font-display text-text" style={{ fontSize: 'clamp(44px,6vw,72px)', lineHeight: 0.95 }}>
                 Hungry Nomad
               </h1>
-              <p className="max-w-[46ch] text-text/80 text-[17px] leading-relaxed mt-5">
-                Fast food, traditional Nigerian dishes and Chinese cuisine — made fresh and delivered across Kaduna.
+              <p className="mt-6 max-w-[42ch] text-[18px] leading-relaxed text-text/75">
+                Grills, Nigerian plates and Chinese dishes, cooked to order and delivered across Kaduna.
               </p>
-
               <div className="mt-6 flex flex-wrap items-center gap-3">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent-100 text-accent-800 text-xs font-semibold">
-                  🛵 Fast local delivery
-                </span>
                 <OpenStatusBadge />
+                <span className="text-sm text-text/60">11:00am – 9:30pm</span>
               </div>
-
               <div className="mt-8 flex flex-wrap gap-4">
-                <Link href="/menu" className="btn-primary">
-                  Explore menu
-                </Link>
-                <Link href="#featured" className="btn-secondary">
-                  View specials
-                </Link>
+                <Link href="/menu" className="btn-primary">Order from the menu</Link>
+                <Link href="#weekend" className="btn-secondary">Weekend packages</Link>
               </div>
             </div>
-
-            {/* Right column: hero image slider */}
-            <div className="relative">
-              <div className="absolute -top-10 -right-10 w-[400px] h-[400px] rounded-full bg-accent2-200 -z-10" aria-hidden="true" />
-              <HeroSlider slides={featured.map((p) => ({ src: p.image_url, alt: p.name }))} />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Link href="/menu?category=fast_food" className="card-glass flex min-h-44 flex-col justify-between p-6 sm:col-span-2 sm:min-h-52">
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-accent-700">Grills</span>
+                <span className="font-display text-4xl leading-none">Chicken, suya, fries</span>
+              </Link>
+              <Link href="/menu?category=regular" className="card-glass flex min-h-40 flex-col justify-between bg-accent p-6 text-bg">
+                <span className="text-xs font-semibold uppercase tracking-[0.18em]">Nigerian</span>
+                <span className="font-display text-3xl leading-none">Rice and stew</span>
+              </Link>
+              <Link href="/menu?category=chinese" className="card-glass flex min-h-40 flex-col justify-between p-6">
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-accent-700">Chinese</span>
+                <span className="font-display text-3xl leading-none">Noodles and rice</span>
+              </Link>
             </div>
           </div>
         </div>
