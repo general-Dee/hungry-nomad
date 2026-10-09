@@ -24,6 +24,17 @@ import { MAX_ITEM_QUANTITY } from '@/lib/pricing';
 vi.mock('@/lib/businessHours', () => ({
   isWithinBusinessHours: () => true,
   BUSINESS_HOURS_LABEL: '11:00am – 9:30pm',
+  DEFAULT_OPEN_MINUTES: 660,
+  DEFAULT_CLOSE_MINUTES: 1290,
+}));
+
+vi.mock('@/lib/storeSettings', () => ({
+  getStoreHours: async () => ({
+    openMinutes: 660,
+    closeMinutes: 1290,
+    closedOverride: false,
+    label: '11:00am – 9:30pm',
+  }),
 }));
 
 // No UPSTASH_REDIS_REST_URL / TOKEN are set in the test env, so the real
