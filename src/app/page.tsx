@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import * as Sentry from '@sentry/nextjs';
 import { supabase } from '@/lib/supabaseClient';
@@ -74,39 +75,37 @@ export default async function Home() {
     <div className="overflow-hidden">
       {/* ========== HERO SECTION ========== */}
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(232,93,4,0.16),_transparent_42%),linear-gradient(160deg,_#fffaf5_0%,_#f4efe8_55%,_#efe4d4_100%)]" aria-hidden="true" />
-        <div className="container relative mx-auto px-4 py-16 lg:py-24">
-          <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-[1.15fr_0.85fr]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(232,93,4,0.12),_transparent_36%),linear-gradient(180deg,_#fffaf5_0%,_#fff_70%)]" aria-hidden="true" />
+        <div className="container relative mx-auto px-4 py-14 lg:py-20">
+          <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-[1.05fr_0.95fr]">
             <div>
-              <p className="text-[13px] font-semibold uppercase tracking-[0.22em] text-accent-700">Kaduna kitchen</p>
-              <h1 className="mt-4 max-w-[12ch] font-display text-text" style={{ fontSize: 'clamp(44px,6vw,72px)', lineHeight: 0.95 }}>
-                Hungry Nomad
+              <p className="text-[13px] font-semibold uppercase tracking-[0.22em] text-accent-700">Welcome to Hungry Nomad</p>
+              <h1 className="mt-4 max-w-[12ch] font-display text-text" style={{ fontSize: 'clamp(44px,6vw,68px)', lineHeight: 0.96 }}>
+                Order food from Kaduna's kitchen
               </h1>
               <p className="mt-6 max-w-[42ch] text-[18px] leading-relaxed text-text/75">
-                Grills, Nigerian plates and Chinese dishes, cooked to order and delivered across Kaduna.
+                Grills, Nigerian plates and Chinese dishes, cooked to order and delivered to your door.
               </p>
               <div className="mt-6 flex flex-wrap items-center gap-3">
                 <OpenStatusBadge />
-                <span className="text-sm text-text/60">11:00am – 9:30pm</span>
+                <span className="text-sm text-text/60">Fresh, local, delivered</span>
               </div>
               <div className="mt-8 flex flex-wrap gap-4">
-                <Link href="/menu" className="btn-primary">Order from the menu</Link>
-                <Link href="#weekend" className="btn-secondary">Weekend packages</Link>
+                <Link href="/menu" className="btn-primary">Start an order</Link>
+                <Link href="#featured" className="btn-secondary">See what's cooking</Link>
               </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Link href="/menu?category=fast_food" className="card-glass flex min-h-44 flex-col justify-between p-6 sm:col-span-2 sm:min-h-52">
-                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-accent-700">Grills</span>
-                <span className="font-display text-4xl leading-none">Chicken, suya, fries</span>
-              </Link>
-              <Link href="/menu?category=regular" className="card-glass flex min-h-40 flex-col justify-between bg-accent p-6 text-bg">
-                <span className="text-xs font-semibold uppercase tracking-[0.18em]">Nigerian</span>
-                <span className="font-display text-3xl leading-none">Rice and stew</span>
-              </Link>
-              <Link href="/menu?category=chinese" className="card-glass flex min-h-40 flex-col justify-between p-6">
-                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-accent-700">Chinese</span>
-                <span className="font-display text-3xl leading-none">Noodles and rice</span>
-              </Link>
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              {featured.filter((item) => item.image_url).slice(0, 3).map((item, index) => (
+                <Link
+                  key={item.id}
+                  href="/menu"
+                  className={`relative overflow-hidden rounded-3xl bg-surface ${index === 0 ? 'col-span-2 h-64 sm:h-80' : 'h-40 sm:h-48'}`}
+                >
+                  <Image src={item.image_url} alt={item.name} fill priority={index === 0} sizes="(max-width: 1024px) 100vw, 40vw" className="object-cover" />
+                  <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-4 pb-4 pt-10 text-sm font-semibold text-white">{item.name}</span>
+                </Link>
+              ))}
             </div>
           </div>
         </div>
