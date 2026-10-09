@@ -51,6 +51,7 @@ export default function CheckoutPage() {
     customer_address: '',
     delivery_lga: '',
     customer_note: '',
+    coupon_code: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -214,6 +215,7 @@ export default function CheckoutPage() {
       customer_address: formData.customer_address,
       delivery_lga: formData.delivery_lga,
       customer_note: formData.customer_note,
+      coupon_code: formData.coupon_code,
       items: cart.map(item => ({
         product_id: item.id,
         quantity: item.quantity,
@@ -558,7 +560,18 @@ export default function CheckoutPage() {
                     </>
                   )}
                 </div>
-                <div>
+                                <div className="sm:col-span-2">
+                  <label htmlFor="coupon_code" className="mb-1 block text-sm font-medium text-text/80">Coupon</label>
+                  <input
+                    id="coupon_code"
+                    name="coupon_code"
+                    value={formData.coupon_code}
+                    onChange={(e) => setFormData({ ...formData, coupon_code: e.target.value.toUpperCase() })}
+                    placeholder="Optional"
+                    className="input-field"
+                  />
+                </div>
+<div>
                   <label htmlFor="customer_note" className="mb-1 block text-sm font-medium text-text/80">Note for the kitchen (optional)</label>
                   <textarea
                     id="customer_note"
