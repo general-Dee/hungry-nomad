@@ -4,7 +4,14 @@ import MenuContent from './MenuContent';
 import WeekendPackages from '@/components/WeekendPackages';
 import { supabase } from '@/lib/supabaseClient';
 import { withRetry } from '@/lib/fetchWithRetry';
+import type { Metadata } from 'next';
 import { Product } from '@/types';
+
+export const metadata: Metadata = {
+  title: 'Menu',
+  description: 'Order grills, Nigerian dishes and Chinese food for delivery in Kaduna from Hungry Nomad.',
+  alternates: { canonical: '/menu' },
+};
 
 export const revalidate = 60;
 
