@@ -29,7 +29,11 @@ const caprasimo = Caprasimo({
 });
 
 export const metadata: Metadata = {
-  title: 'Hungry Nomad – Best Fast Food, Nigerian & Chinese in Kaduna',
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: 'Hungry Nomad | Food delivery in Kaduna',
+    template: '%s | Hungry Nomad',
+  },
   description: 'Order delicious fast food, traditional Nigerian dishes, and authentic Chinese cuisine in Kaduna. Fast delivery, best prices.',
   keywords: 'restaurant kaduna, fast food kaduna, nigerian food, chinese food kaduna, order food online',
   authors: [{ name: 'Hungry Nomad' }],
@@ -55,10 +59,8 @@ export const metadata: Metadata = {
     description: 'Best food delivery in Kaduna',
     images: [`${SITE_URL}/og-image.jpg`],
   },
-  robots: {
-    index: true,
-    follow: true,
-  },
+  alternates: { canonical: '/' },
+  robots: { index: true, follow: true },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -101,8 +103,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               "telephone": "+2347062169786",
               "servesCuisine": ["Fast Food", "Nigerian", "Chinese"],
               "priceRange": "₦1500 - ₦5000",
-              "openingHours": "Mo-Su 11:00-21:30",
-              "image": `${SITE_URL}/restaurant-image.jpg`
+              "openingHoursSpecification": {
+                "@type": "OpeningHoursSpecification",
+                "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],
+                "opens": "11:00",
+                "closes": "21:30"
+              },
+              "menu": `${SITE_URL}/menu`,
+              "areaServed": "Kaduna",
+              "image": `${SITE_URL}/og-image.jpg`,
+              "sameAs": []
             })
           }}
         />
