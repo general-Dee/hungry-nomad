@@ -309,7 +309,7 @@ describe('confirmOrderPaid', () => {
     expect(mockSendStaffOrderAlertEmail).not.toHaveBeenCalled();
   });
 
-  it('sends both confirmation and staff-alert emails with correctly-shaped items on the happy path', async () => {
+  it('sends the confirmation email with correctly-shaped items but not the staff alert (DB trigger sends it) on the happy path', async () => {
     setItemsResult({
       data: [
         { product_id: 1, quantity: 2, price_at_time: 500, products: { name: 'Jollof Rice' } },
@@ -332,13 +332,10 @@ describe('confirmOrderPaid', () => {
       { id: 5, total_amount: 1000, status: 'paid' },
       expectedItems
     );
-    expect(mockSendStaffOrderAlertEmail).toHaveBeenCalledWith(
-      { id: 5, total_amount: 1000, status: 'paid' },
-      expectedItems
-    );
+    expect(mockSendStaffOrderAlertEmail).not.toHaveBeenCalled();
   });
 
-  it('still sends emails and returns success when the order_items fetch errors (logged, not fatal)', async () => {
+  it('still sends the confirmation email and returns success when the order_items fetch errors (logged, not fatal)', async () => {
     setItemsResult({ data: null, error: { message: 'order_items fetch exploded' } });
 
     const res = await confirmOrderPaid({ orderId: 5, reference: 'ref_1', amountKobo: 100000, currency: 'NGN' });
@@ -350,10 +347,7 @@ describe('confirmOrderPaid', () => {
       { id: 5, total_amount: 1000, status: 'paid' },
       []
     );
-    expect(mockSendStaffOrderAlertEmail).toHaveBeenCalledWith(
-      { id: 5, total_amount: 1000, status: 'paid' },
-      []
-    );
+    expect(mockSendStaffOrderAlertEmail).not.toHaveBeenCalled();
   });
 
   it('invokes sendMetaPurchaseEvent exactly once with the reference, total, product ids and contact details on pending -> paid', async () => {
@@ -445,7 +439,7 @@ describe('confirmOrderPaid', () => {
     const body = await res.json();
     expect(body).toEqual({ success: true });
     expect(mockSendOrderConfirmationEmail).toHaveBeenCalled();
-    expect(mockSendStaffOrderAlertEmail).toHaveBeenCalled();
+    expect(mockSendStaffOrderAlertEmail).not.toHaveBeenCalled();
     expect(errorSpy).toHaveBeenCalledWith(
       'Order confirmation side effect failed:',
       expect.any(Error)

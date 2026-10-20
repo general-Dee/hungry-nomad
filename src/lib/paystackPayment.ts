@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { sendOrderConfirmationEmail, sendStaffOrderAlertEmail } from '@/lib/email';
+import { sendOrderConfirmationEmail } from '@/lib/email';
 import { getProductName } from '@/lib/orderItems';
 import { sendMetaPurchaseEvent } from '@/lib/metaCapi';
 import { sendCustomerPaidSms } from '@/lib/sms';
@@ -211,9 +211,12 @@ export async function confirmOrderPaid({
   // try/catch (and log via allSettled) so a slip-through rejection from any
   // one of them can never prevent this function from returning success once
   // the order has already been committed to 'paid' above.
+  //
+  // The staff order-alert email is intentionally NOT sent from here: the
+  // Supabase paid-order trigger calls the send-order-email edge function,
+  // which emails staff for every order that becomes paid.
   const results = await Promise.allSettled([
     sendOrderConfirmationEmail(order, emailItems),
-    sendStaffOrderAlertEmail(order, emailItems),
     sendMetaPurchaseEvent({
       eventId: reference,
       value: order.total_amount,

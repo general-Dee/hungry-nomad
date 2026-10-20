@@ -85,6 +85,9 @@ export async function sendOrderConfirmationEmail(order: OrderEmailDetails, items
   }
 }
 
+// Currently unused: staff order alerts are now sent by the Supabase
+// send-order-email edge function through the paid-order trigger. Kept (and
+// tested) in case the shop ever needs to send them directly again.
 export async function sendStaffOrderAlertEmail(order: OrderEmailDetails, items: OrderEmailItem[]) {
   const resend = getResendClient();
   if (!resend || STAFF_EMAILS.length === 0) {
