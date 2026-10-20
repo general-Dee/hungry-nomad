@@ -1,0 +1,164 @@
+# Nightly Supabase database export
+# ---------------------------------
+# Runs pg_dump against the Hungry Nomad Supabase Postgres database every night
+# at 01:30 UTC (02:30 WAT) and uploads the dump as a workflow artifact kept for
+# 7 days. Can also be started manually from the Actions tab (workflow_dispatch).
+#
+# Required repository secrets (Settings > Secrets and variables > Actions):
+#   SUPABASE_DB_URL   Session pooler connection string (IPv4, port 5432), e.g.
+#                     postgresql://postgres.didjqzebvouurvpdjofb:<password>@aws-<n>-eu-west-1.pooler.supabase.com:5432/postgres
+#                     Do NOT use the direct host db.<ref>.supabase.co (IPv6-only on
+#                     the Free plan; GitHub runners are IPv4) or the transaction
+#                     pooler on port 6543.
+#   DUMP_PASSPHRASE   Symmetric GPG passphrase used to encrypt the dump.
+#                     REQUIRED while this repository is public (artifacts of a public
+#                     repo can be downloaded by any signed-in GitHub user, and the
+#                     dump contains customer data). Optional for a private repo:
+#                     if set, the dump is encrypted; if not, plain files are uploaded.
+#
+# Restore:
+#   1. Download the artifact from the workflow run (Actions > run > Artifacts) and unzip it.
+#   2. If encrypted (*.gpg):  gpg -d -o db.dump hungry-nomad-<stamp>.dump.gpg
+#   3. pg_restore --no-owner --no-privileges -d "<target database url>" db.dump
+#      (use pg_restore from PostgreSQL 17 or newer; restoring the auth schema
+#      into another Supabase project may conflict with its existing auth objects,
+#      so consider --schema=public or a scratch database first)
+
+name: Nightly DB export
+
+on:
+  schedule:
+    - cron: '30 1 * * *' # 01:30 UTC = 02:30 WAT
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-db-export
+  cancel-in-progress: false
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      DUMP_PASSPHRASE: ${{ secrets.DUMP_PASSPHRASE }}
+      PGSSLMODE: require
+      PGCONNECT_TIMEOUT: '20'
+    steps:
+      - name: Check secrets and repository visibility
+        id: cfg
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_DB_URL}" ]; then
+            echo "::error::Secret SUPABASE_DB_URL is not set. Add the Supabase Session pooler connection string (port 5432) as a repository secret."
+            exit 1
+          fi
+          case "${SUPABASE_DB_URL}" in
+            *:6543/*|*:6543)
+              echo "::error::SUPABASE_DB_URL points at the transaction pooler (port 6543). Use the Session pooler (port 5432) instead."
+              exit 1 ;;
+          esac
+
+          visibility="$(gh api "repos/${REPO}" --jq .visibility)"
+          echo "Repository visibility: ${visibility}"
+
+          # Fail closed: anything that is not explicitly private must be encrypted.
+          if [ "${visibility}" != "private" ]; then
+            if [ -z "${DUMP_PASSPHRASE}" ]; then
+              echo "::error::Repository is ${visibility}: artifacts are downloadable by any signed-in GitHub user. Set the DUMP_PASSPHRASE secret so the dump can be encrypted."
+              exit 1
+            fi
+            encrypt=true
+          elif [ -n "${DUMP_PASSPHRASE}" ]; then
+            encrypt=true
+          else
+            encrypt=false
+          fi
+          echo "Encrypt dump: ${encrypt}"
+          echo "encrypt=${encrypt}" >> "$GITHUB_OUTPUT"
+
+      - name: Install PostgreSQL 17 client (PGDG)
+        run: |
+          set -euo pipefail
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends postgresql-client-17
+          # Make sure the v17 binaries win over any preinstalled client.
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Log client and server versions
+        run: |
+          set -euo pipefail
+          pg_dump --version
+          psql --version
+          psql "${SUPABASE_DB_URL}" -X -A -t -v ON_ERROR_STOP=1 -c 'select version()'
+          server_major="$(psql "${SUPABASE_DB_URL}" -X -A -t -v ON_ERROR_STOP=1 -c 'show server_version_num' | cut -c1-2)"
+          client_major="$(pg_dump --version | sed -E 's/.* ([0-9]+)\..*/\1/')"
+          echo "Server major: ${server_major}, pg_dump major: ${client_major}"
+          if [ "${server_major}" -gt "${client_major}" ]; then
+            echo "::error::pg_dump ${client_major} is older than server ${server_major}. Bump postgresql-client-* in this workflow."
+            exit 1
+          fi
+
+      - name: Dump database
+        id: dump
+        run: |
+          set -euo pipefail
+          stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+          mkdir -p out
+          pg_dump --dbname="${SUPABASE_DB_URL}" \
+            --format=custom --no-owner --no-privileges \
+            --schema=public --schema=auth \
+            --file="out/hungry-nomad-${stamp}.dump"
+          pg_dump --dbname="${SUPABASE_DB_URL}" \
+            --format=plain --schema-only --no-owner --no-privileges \
+            --schema=public \
+            --file="out/hungry-nomad-public-schema-${stamp}.sql"
+          ls -l out
+          echo "stamp=${stamp}" >> "$GITHUB_OUTPUT"
+
+      - name: Encrypt dump
+        if: steps.cfg.outputs.encrypt == 'true'
+        run: |
+          set -euo pipefail
+          for f in out/*.dump out/*.sql; do
+            printf '%s' "${DUMP_PASSPHRASE}" | gpg --symmetric --batch --yes \
+              --pinentry-mode loopback --passphrase-fd 0 \
+              --cipher-algo AES256 --output "${f}.gpg" "${f}"
+            shred -u "${f}" || rm -f "${f}"
+          done
+          ls -l out
+
+      - name: Upload encrypted artifact
+        if: steps.cfg.outputs.encrypt == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hungry-nomad-db-${{ steps.dump.outputs.stamp }}-encrypted
+          path: out/*.gpg
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Upload plain artifact (private repo only)
+        if: steps.cfg.outputs.encrypt != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hungry-nomad-db-${{ steps.dump.outputs.stamp }}
+          path: |
+            out/*.dump
+            out/*.sql
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Clean up
+        if: always()
+        run: rm -rf out
