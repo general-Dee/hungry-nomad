@@ -1,4 +1,6 @@
-export type ProductCategory = 'fast_food' | 'regular' | 'chinese' | 'icecream' | 'beverages' | 'weekend';
+// Built-in slugs, plus any category added in admin (public.categories).
+// `string & {}` keeps editor autocomplete for the built-in ones.
+export type ProductCategory = 'fast_food' | 'regular' | 'chinese' | 'icecream' | 'beverages' | 'weekend' | (string & {});
 
 export interface Product {
   id: number;

@@ -189,4 +189,61 @@ describe('MenuContent', () => {
     await waitFor(() => expect(screen.queryByText('Loaded Fries')).not.toBeInTheDocument());
     expect(screen.getByText('No dishes match your search.')).toBeInTheDocument();
   });
+
+  it('renders tabs from admin categories in sort order, with renamed labels and hidden ones removed', () => {
+    searchParams = new URLSearchParams();
+    const categories = [
+      { slug: 'regular', name: 'Rice & Stews', sort_order: 10, is_active: true },
+      { slug: 'beverages', name: 'Drinks', sort_order: 20, is_active: true },
+      { slug: 'fast_food', name: 'Fast Food', sort_order: 30, is_active: true },
+      { slug: 'chinese', name: 'Chinese', sort_order: 40, is_active: false },
+    ];
+    render(<MenuContent initialProducts={products} categories={categories} />, { wrapper });
+
+    const labels = screen.getAllByRole('button', { pressed: false }).concat(screen.getAllByRole('button', { pressed: true }))
+      .map((b) => b.textContent)
+      .filter((t) => ['All', 'Rice & Stews', 'Drinks', 'Fast Food', 'Chinese', 'Ice Cream'].includes(t || ''));
+    expect(new Set(labels)).toEqual(new Set(['All', 'Rice & Stews', 'Drinks', 'Fast Food']));
+    const tabTexts = Array.from(document.querySelectorAll('button')).map((b) => b.textContent);
+    expect(tabTexts.indexOf('Rice & Stews')).toBeLessThan(tabTexts.indexOf('Drinks'));
+    expect(tabTexts.indexOf('Drinks')).toBeLessThan(tabTexts.indexOf('Fast Food'));
+  });
+
+  it('shows an item moved to Regular Dishes under that tab (e.g. Chinese fried rice)', async () => {
+    searchParams = new URLSearchParams('category=regular');
+    const moved: Product = {
+      id: 0,
+      name: 'Chinese fried rice',
+      description: 'Fried rice',
+      price: 4500,
+      category: 'regular',
+      subcategory: '',
+      image_url: '/cfr.jpg',
+      created_at: '2026-01-01T00:00:00.000Z',
+    };
+    render(<MenuContent initialProducts={[...products, moved]} />, { wrapper });
+    expect(screen.getByText('Chinese fried rice')).toBeInTheDocument();
+    expect(screen.getByText('Fried Rice')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Chinese' })).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('supports ?category= for a category added in admin and its subcategories', async () => {
+    searchParams = new URLSearchParams('category=desserts');
+    const user = userEvent.setup();
+    const desserts: Product[] = [
+      { id: 10, name: 'Cheesecake', description: 'Slice', price: 2000, category: 'desserts', subcategory: 'cakes', image_url: '/c.jpg', created_at: '2026-01-01T00:00:00.000Z' },
+      { id: 11, name: 'Puff Puff', description: 'Six', price: 800, category: 'desserts', subcategory: 'small chops', image_url: '/p.jpg', created_at: '2026-01-01T00:00:00.000Z' },
+    ];
+    const categories = [
+      { slug: 'regular', name: 'Regular Dishes', sort_order: 10, is_active: true },
+      { slug: 'desserts', name: 'Desserts', sort_order: 20, is_active: true },
+    ];
+    render(<MenuContent initialProducts={[...products, ...desserts]} categories={categories} />, { wrapper });
+
+    expect(screen.getByRole('button', { name: 'Desserts' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByText('Fried Rice')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Small Chops' }));
+    expect(screen.getByText('Puff Puff')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText('Cheesecake')).not.toBeInTheDocument());
+  });
 });

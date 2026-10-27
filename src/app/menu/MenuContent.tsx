@@ -2,96 +2,64 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Product, ProductCategory } from '@/types';
+import { Product } from '@/types';
+import { FALLBACK_CATEGORIES, MenuCategory, menuTabs, subcategoryTabs } from '@/lib/categories';
 import ProductCard from '@/components/ProductCard';
 import { useFavorites } from '@/context/FavoritesContext';
 import { AnimatePresence } from 'framer-motion';
 import { MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { HeartIcon } from '@heroicons/react/24/solid';
 
-const categories: (ProductCategory | 'all')[] = ['all', 'fast_food', 'regular', 'chinese', 'icecream', 'beverages'];
-const categoryLabels: Record<string, string> = {
-  all: 'All',
-  fast_food: 'Fast Food',
-  regular: 'Regular Dishes',
-  chinese: 'Chinese',
-  icecream: 'Ice Cream',
-  beverages: 'Beverages',
-};
-
-// Subcategories for fast food
-const fastFoodSubs = ['all', 'grills', 'shawarma', 'fries'];
-const fastFoodSubLabels: Record<string, string> = {
-  all: 'All Fast Food',
-  grills: 'Grills',
-  shawarma: 'Shawarma / Wraps',
-  fries: 'Fries',
-};
-
-// Subcategories for Chinese
-const chineseSubs = ['all', 'noodles', 'rice', 'sausages', 'wings', 'extras', 'dips'];
-const chineseSubLabels: Record<string, string> = {
-  all: 'All Chinese',
-  noodles: 'Noodles',
-  rice: 'Rice',
-  sausages: 'Sausages',
-  wings: 'Wings',
-  extras: 'Extras',
-  dips: 'Dips',
-};
-
-// Subcategories for Regular Dishes
-const regularSubs = ['all', 'sides'];
-const regularSubLabels: Record<string, string> = {
-  all: 'All Regular',
-  sides: 'Sides',
-};
-
-export default function MenuContent({ initialProducts }: { initialProducts: Product[] }) {
+export default function MenuContent({
+  initialProducts,
+  categories = FALLBACK_CATEGORIES,
+}: {
+  initialProducts: Product[];
+  /** Categories in sort order (from public.categories, or the built-in fallback). */
+  categories?: MenuCategory[];
+}) {
   const searchParams = useSearchParams();
-  const categoryParam = searchParams.get('category') as ProductCategory | null;
+  const categoryParam = searchParams.get('category');
 
-  const [activeCategory, setActiveCategory] = useState<ProductCategory | 'all'>(
-    categoryParam && categories.includes(categoryParam) ? categoryParam : 'all'
+  const tabs = useMemo(
+    () => menuTabs(categories, initialProducts.map((p) => p.category)),
+    [categories, initialProducts]
   );
-  const [activeFastSub, setActiveFastSub] = useState<string>('all');
-  const [activeChineseSub, setActiveChineseSub] = useState<string>('all');
-  const [activeRegularSub, setActiveRegularSub] = useState<string>('all');
+  const isTab = (slug: string | null): slug is string => !!slug && tabs.some((t) => t.slug === slug);
+
+  const [activeCategory, setActiveCategory] = useState<string>(isTab(categoryParam) ? categoryParam : 'all');
+  const [activeSub, setActiveSub] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [visibleCount, setVisibleCount] = useState(9);
   const { favoriteIds } = useFavorites();
 
   useEffect(() => {
-    if (categoryParam && categories.includes(categoryParam)) {
+    if (isTab(categoryParam)) {
       setActiveCategory(categoryParam);
-      setActiveFastSub('all');
-      setActiveChineseSub('all');
-      setActiveRegularSub('all');
+      setActiveSub('all');
     } else if (!categoryParam) {
       setActiveCategory('all');
-      setActiveFastSub('all');
-      setActiveChineseSub('all');
-      setActiveRegularSub('all');
+      setActiveSub('all');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoryParam]);
+
+  const subTabs = useMemo(
+    () => subcategoryTabs(tabs.find((t) => t.slug === activeCategory), initialProducts),
+    [tabs, activeCategory, initialProducts]
+  );
 
   const filtered = useMemo(() => {
     let filteredByCategory = activeCategory === 'all'
       ? initialProducts
       : initialProducts.filter(p => p.category === activeCategory);
 
-    if (activeCategory === 'fast_food' && activeFastSub !== 'all') {
-      filteredByCategory = filteredByCategory.filter(p => p.subcategory === activeFastSub);
-    }
-    if (activeCategory === 'chinese' && activeChineseSub !== 'all') {
-      filteredByCategory = filteredByCategory.filter(p => p.subcategory === activeChineseSub);
-    }
-    if (activeCategory === 'regular' && activeRegularSub !== 'all') {
-      filteredByCategory = filteredByCategory.filter(p => p.subcategory === activeRegularSub);
+    if (activeCategory !== 'all' && activeSub !== 'all') {
+      filteredByCategory = filteredByCategory.filter(p => (p.subcategory || '').trim() === activeSub);
     }
 
-    const query = searchQuery.trim().toLowerCase();
+  const query = searchQuery.trim().toLowerCase();
     if (query) {
       filteredByCategory = filteredByCategory.filter(
         p => p.name.toLowerCase().includes(query) || p.description.toLowerCase().includes(query)
@@ -103,12 +71,12 @@ export default function MenuContent({ initialProducts }: { initialProducts: Prod
     }
 
     return filteredByCategory;
-  }, [activeCategory, activeFastSub, activeChineseSub, activeRegularSub, initialProducts, searchQuery, showFavoritesOnly, favoriteIds]);
+  }, [activeCategory, activeSub, initialProducts, searchQuery, showFavoritesOnly, favoriteIds]);
 
   // Reset pagination back to the first page whenever any filter changes.
   useEffect(() => {
     setVisibleCount(9);
-  }, [activeCategory, activeFastSub, activeChineseSub, activeRegularSub, searchQuery, showFavoritesOnly]);
+  }, [activeCategory, activeSub, searchQuery, showFavoritesOnly]);
 
   const visibleProducts = filtered.slice(0, visibleCount);
 
@@ -154,80 +122,40 @@ export default function MenuContent({ initialProducts }: { initialProducts: Prod
         </button>
       </div>
 
-      {/* Main category tabs */}
+      {/* Main category tabs, in the order set in admin */}
       <div className="flex flex-wrap justify-center gap-3 mb-6">
-        {categories.map(cat => (
+        {[{ slug: 'all', name: 'All' }, ...tabs].map(cat => (
           <button
-            key={cat}
+            key={cat.slug}
             onClick={() => {
-              setActiveCategory(cat);
-              setActiveFastSub('all');
-              setActiveChineseSub('all');
-              setActiveRegularSub('all');
+              setActiveCategory(cat.slug);
+              setActiveSub('all');
             }}
-            aria-pressed={activeCategory === cat}
-            className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${activeCategory === cat
+            aria-pressed={activeCategory === cat.slug}
+            className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${activeCategory === cat.slug
                 ? 'bg-accent text-bg shadow-md'
                 : 'bg-surface text-text hover:bg-accent-100'
               }`}
           >
-            {categoryLabels[cat]}
+            {cat.name}
           </button>
         ))}
       </div>
 
-      {/* Subcategory tabs for Fast Food */}
-      {activeCategory === 'fast_food' && (
+      {/* Subcategory tabs for the active category */}
+      {subTabs.length > 0 && (
         <div className="flex flex-wrap justify-center gap-3 mb-8">
-          {fastFoodSubs.map(sub => (
+          {subTabs.map(sub => (
             <button
-              key={sub}
-              onClick={() => setActiveFastSub(sub)}
-              aria-pressed={activeFastSub === sub}
-              className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${activeFastSub === sub
+              key={sub.value}
+              onClick={() => setActiveSub(sub.value)}
+              aria-pressed={activeSub === sub.value}
+              className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${activeSub === sub.value
                   ? 'bg-accent text-bg'
                   : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                 }`}
             >
-              {fastFoodSubLabels[sub]}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Subcategory tabs for Chinese */}
-      {activeCategory === 'chinese' && (
-        <div className="flex flex-wrap justify-center gap-3 mb-8">
-          {chineseSubs.map(sub => (
-            <button
-              key={sub}
-              onClick={() => setActiveChineseSub(sub)}
-              aria-pressed={activeChineseSub === sub}
-              className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${activeChineseSub === sub
-                  ? 'bg-accent text-bg'
-                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                }`}
-            >
-              {chineseSubLabels[sub]}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Subcategory tabs for Regular Dishes */}
-      {activeCategory === 'regular' && (
-        <div className="flex flex-wrap justify-center gap-3 mb-8">
-          {regularSubs.map(sub => (
-            <button
-              key={sub}
-              onClick={() => setActiveRegularSub(sub)}
-              aria-pressed={activeRegularSub === sub}
-              className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${activeRegularSub === sub
-                  ? 'bg-accent text-bg'
-                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                }`}
-            >
-              {regularSubLabels[sub]}
+              {sub.label}
             </button>
           ))}
         </div>
