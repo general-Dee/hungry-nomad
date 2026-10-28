@@ -1,0 +1,172 @@
+# Order lookup (read-only)
+# ------------------------
+# Manually triggered lookup of ONE order by id, run from GitHub's runners (which
+# can reach the Supabase Session pooler). It runs exactly one SELECT on
+# public.orders inside a READ ONLY transaction and prints a masked summary.
+# It never writes to the database.
+#
+# Run it (needs write access to this repo):
+#   gh workflow run order-lookup.yml -f order_id=98
+#   gh run watch "$(gh run list --workflow=order-lookup.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
+# or Actions > "Order lookup (read-only)" > Run workflow.
+#
+# Input:
+#   order_id   digits only, 1-9 characters (anything else is rejected before
+#              connecting). Passed to psql as a variable, never spliced into SQL.
+#
+# Output (in the job log):
+#   id, customer_name, customer_phone_masked (first 4 + last 2 digits),
+#   customer_email_masked (first 2 chars of the local part + *** + @domain),
+#   total_amount, status, created_at, payment_reference.
+#   While this repository is PUBLIC, job logs are publicly readable, so the name
+#   is reduced to first name + last initial and payment_reference to its last 4
+#   characters (the full reference is an ownership proof for GET /api/orders/[id]).
+#
+# Required repository secret (same one the nightly export uses):
+#   SUPABASE_DB_URL   Session pooler connection string (port 5432). See
+#                     nightly-db-export.yml for the expected format.
+
+name: Order lookup (read-only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      order_id:
+        description: 'Order id (digits only, 1-9 characters)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: order-lookup
+  cancel-in-progress: false
+
+jobs:
+  lookup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      ORDER_ID: ${{ inputs.order_id }}
+      PGSSLMODE: require
+      PGCONNECT_TIMEOUT: '20'
+    steps:
+      - name: Validate input and secret
+        id: cfg
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_DB_URL}" ]; then
+            echo "::error::Secret SUPABASE_DB_URL is not set. Add the Supabase Session pooler connection string (port 5432) as a repository secret."
+            exit 1
+          fi
+          # Belt and braces: GitHub already masks secrets, but also mask the URL
+          # and its password component explicitly.
+          echo "::add-mask::${SUPABASE_DB_URL}"
+          creds="${SUPABASE_DB_URL#*://}"
+          creds="${creds%%@*}"
+          case "${creds}" in
+            *:*) pw="${creds#*:}"; [ -n "${pw}" ] && echo "::add-mask::${pw}" ;;
+          esac
+          case "${SUPABASE_DB_URL}" in
+            *:6543/*|*:6543)
+              echo "::error::SUPABASE_DB_URL points at the transaction pooler (port 6543). Use the Session pooler (port 5432) instead."
+              exit 1 ;;
+          esac
+
+          # bash [[ =~ ]] anchors to the whole string (grep would accept "98\n1").
+          if [[ ! "${ORDER_ID}" =~ ^[0-9]{1,9}$ ]]; then
+            echo "::error::order_id must be digits only, 1-9 characters."
+            exit 1
+          fi
+
+          visibility="$(gh api "repos/${REPO}" --jq .visibility)"
+          echo "Repository visibility: ${visibility}"
+          # Fail closed: anything not explicitly private gets the stricter masking.
+          if [ "${visibility}" = "private" ]; then
+            echo "public_repo=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "public_repo=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install PostgreSQL 17 client (PGDG)
+        run: |
+          set -euo pipefail
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Look up order (read-only)
+        env:
+          PUBLIC_REPO: ${{ steps.cfg.outputs.public_repo }}
+        run: |
+          set -euo pipefail
+          # Re-validate here so this step is safe on its own.
+          [[ "${ORDER_ID}" =~ ^[0-9]{1,9}$ ]] || { echo "::error::invalid order_id"; exit 1; }
+          case "${PUBLIC_REPO}" in true|false) ;; *) PUBLIC_REPO=true ;; esac
+
+          # The connection string is passed only as a psql argument (never echoed).
+          # The SQL is fed on stdin so psql's :'var' quoting applies; the input is
+          # never interpolated into the SQL text by the shell (quoted heredoc).
+          result="$(psql "${SUPABASE_DB_URL}" -X -q -A -t -x -F ': ' \
+            -v ON_ERROR_STOP=1 \
+            -v order_id="${ORDER_ID}" \
+            -v public_repo="${PUBLIC_REPO}" <<'SQL'
+          BEGIN TRANSACTION READ ONLY;
+          SELECT
+            o.id,
+            CASE
+              WHEN o.customer_name IS NULL THEN NULL
+              WHEN :'public_repo' = 'true' THEN
+                split_part(btrim(o.customer_name), ' ', 1)
+                || CASE
+                     WHEN position(' ' IN btrim(o.customer_name)) > 0
+                     THEN ' ' || left(regexp_replace(btrim(o.customer_name), '^.*\s', ''), 1) || '.'
+                     ELSE ''
+                   END
+              ELSE o.customer_name
+            END AS customer_name,
+            CASE
+              WHEN o.customer_phone IS NULL THEN NULL
+              WHEN length(o.customer_phone) > 6 THEN
+                left(o.customer_phone, 4)
+                || repeat('*', length(o.customer_phone) - 6)
+                || right(o.customer_phone, 2)
+              ELSE repeat('*', length(o.customer_phone))
+            END AS customer_phone_masked,
+            CASE
+              WHEN o.customer_email IS NULL OR btrim(o.customer_email) = '' THEN NULL
+              WHEN position('@' IN o.customer_email) = 0 THEN '***'
+              ELSE left(split_part(o.customer_email, '@', 1), 2) || '***@'
+                   || substr(o.customer_email, position('@' IN o.customer_email) + 1)
+            END AS customer_email_masked,
+            o.total_amount,
+            o.status,
+            o.created_at,
+            CASE
+              WHEN o.payment_reference IS NULL THEN NULL
+              WHEN :'public_repo' = 'true' AND length(o.payment_reference) > 8
+                THEN '***' || right(o.payment_reference, 4)
+              WHEN :'public_repo' = 'true' THEN '***'
+              ELSE o.payment_reference
+            END AS payment_reference
+          FROM public.orders o
+          WHERE o.id = :'order_id'::bigint;
+          ROLLBACK;
+          SQL
+          )"
+
+          if [ -z "${result}" ]; then
+            echo "No order found with id ${ORDER_ID}."
+          else
+            echo "${result}"
+          fi
