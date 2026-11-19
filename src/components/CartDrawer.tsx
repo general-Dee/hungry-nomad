@@ -75,7 +75,7 @@ export default function CartDrawer() {
                   {cart.map((item) => (
                     <div key={item.id} className="flex gap-3 items-center">
                       <div className="relative w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden">
-                        <Image src={item.image_url} alt={item.name} fill sizes="64px" className="object-cover" />
+                        {item.image_url && <Image src={item.image_url} alt={item.name} fill sizes="64px" className="object-cover" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <h3 className="font-semibold text-sm truncate">{item.name}</h3>

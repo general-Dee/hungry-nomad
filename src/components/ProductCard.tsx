@@ -63,14 +63,18 @@ function ProductCard({ product, priority = false }: { product: Product; priority
       className="group relative card-glass overflow-hidden"
     >
       <div className="relative h-52 w-full overflow-hidden">
-        <Image
-          src={product.image_url}
-          alt={product.name}
-          fill
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-          priority={priority}
-          className="object-cover transition-transform duration-700 group-hover:scale-110"
-        />
+        {product.image_url ? (
+          <Image
+            src={product.image_url}
+            alt={product.name}
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            priority={priority}
+            className="object-cover transition-transform duration-700 group-hover:scale-110"
+          />
+        ) : (
+          <div className="absolute inset-0 bg-neutral-200" aria-hidden="true" />
+        )}
         <div className="absolute top-3 right-3 bg-accent text-bg font-display text-[13px] px-3 py-1 rounded-full shadow-sm">
           ₦{product.price.toLocaleString()}
         </div>
